@@ -1,6 +1,6 @@
 # ⚡ GazExpress — Propan gaz ballonlarini uyma-uy yetkazib berish tizimi
 
-> «WEB TIZIMLAR» fani doirasidagi kurs loyihasi (74-mavzu)
+> 
 
 Zamonaviy, to'liq funksional **3 rolli** axborot tizimi: mijoz buyurtma beradi,
 haydovchi jonli kuzatadi, admin boshqaradi. Real vaqt rejimida ishlaydi.
