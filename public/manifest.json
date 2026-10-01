@@ -1,0 +1,19 @@
+{
+  "name": "GazExpress — Gaz ballon yetkazib berish",
+  "short_name": "GazExpress",
+  "description": "Propan gaz ballonlarini uyma-uy yetkazib berish va boshqarish tizimi",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#ffffff",
+  "theme_color": "#2563eb",
+  "orientation": "portrait-primary",
+  "lang": "uz",
+  "icons": [
+    {
+      "src": "/icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}
