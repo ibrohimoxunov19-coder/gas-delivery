@@ -65,7 +65,7 @@ export default function Map({
 
   function ClickHandler() {
     useMapEvents({
-      click(e) {
+      click(e: any) {
         onLocationSelect?.(e.latlng.lat, e.latlng.lng);
       },
     });
