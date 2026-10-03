@@ -9,6 +9,10 @@ export interface Profile {
   latitude?: number;
   longitude?: number;
   created_at: string;
+  // Yangi maydonlar
+  car_plate?: string;
+  car_model?: string;
+  driver_phone?: string;
 }
 
 export interface CylinderType {
@@ -43,8 +47,11 @@ export interface Order {
   delivery_time?: string;
   receipt_no?: string;
   is_recurring: boolean;
+  rating?: number;
+  review_text?: string;
   created_at: string;
   updated_at: string;
   profiles?: Profile;
   cylinder_types?: CylinderType;
+  driver_profile?: Profile; // <-- join orqali keladi
 }

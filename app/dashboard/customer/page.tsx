@@ -7,9 +7,12 @@ import OrderForm from '@/components/OrderForm';
 import OrderCard from '@/components/OrderCard';
 import TrackingPanel from '@/components/TrackingPanel';
 import Receipt from '@/components/Receipt';
+import ProfileEditor from '@/components/ProfileEditor';
+import OrderTimeline from '@/components/OrderTimeline';
+import RatingModal from '@/components/RatingModal';
 import { requestNotifPermission, hasNotifPermission, sendPush } from '@/lib/notifications';
 import { useRouter } from 'next/navigation';
-import { LogOut, Package, History, XCircle, FileText, Bell, BellRing, RefreshCw } from 'lucide-react';
+import { LogOut, Package, History, XCircle, FileText, Bell, BellRing, RefreshCw, User, Star } from 'lucide-react';
 import { toast } from '@/components/Toast';
 
 const statusPushText: Record<string, string> = {
@@ -25,6 +28,7 @@ export default function CustomerDashboard() {
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<'active' | 'history'>('active');
   const [receiptOrder, setReceiptOrder] = useState<Order | null>(null);
+  const [rateOrderId, setRateOrderId] = useState<number | null>(null);
   const [notifOn, setNotifOn] = useState(false);
   const [recurringAlert, setRecurringAlert] = useState<Order | null>(null);
   const userIdRef = useRef<string>('');
@@ -68,7 +72,7 @@ export default function CustomerDashboard() {
     if (!uid) return;
     const { data, error } = await supabase
       .from('orders')
-      .select(`*, cylinder_types:cylinder_type_id (name, weight_kg, price)`)
+      .select(`*, cylinder_types:cylinder_type_id (name, weight_kg, price), driver_profile:profiles!driver_id(*)`)
       .eq('customer_id', uid)
       .order('created_at', { ascending: false });
     if (!error && data) {
@@ -78,11 +82,10 @@ export default function CustomerDashboard() {
     }
   };
 
-  // ♻ Takroriy buyurtma eslatmasi: oxirgi takroriy buyurtmadan 30 kun o'tgan bo'lsa
   const checkRecurring = (list: Order[]) => {
     const recurring = list.filter((o) => o.is_recurring);
     if (recurring.length === 0) return;
-    const last = recurring[0]; // eng yangi
+    const last = recurring[0];
     const days = (Date.now() - new Date(last.created_at).getTime()) / 86400000;
     if (days >= 30) {
       setRecurringAlert(last);
@@ -90,7 +93,6 @@ export default function CustomerDashboard() {
     }
   };
 
-  // Demo: himoyada darhol eslatmani ko'rsatish uchun
   const simulateRecurring = () => {
     const recurring = orders.filter((o) => o.is_recurring);
     if (recurring.length === 0) {
@@ -153,7 +155,22 @@ export default function CustomerDashboard() {
       </nav>
 
       <div className="container mx-auto px-4 py-8 print:hidden">
-        {/* ♻ Takroriy eslatma banneri */}
+        {/* PROFIL */}
+        <div className="mb-6">
+          <details className="group">
+            <summary className="cursor-pointer list-none bg-white p-4 rounded-2xl shadow-sm border flex items-center justify-between hover:bg-gray-50 transition">
+              <span className="font-semibold text-gray-800 flex items-center gap-2">
+                <User className="w-5 h-5 text-blue-600" /> Profilimni tahrirlash
+              </span>
+              <span className="text-gray-400 group-open:rotate-180 transition-transform">▼</span>
+            </summary>
+            <div className="mt-3">
+              <ProfileEditor profile={user!} onSaved={() => checkUser()} />
+            </div>
+          </details>
+        </div>
+
+        {/* TAKRORIY ESLATMA */}
         {recurringAlert && (
           <div className="bg-gradient-to-r from-purple-50 to-indigo-50 border border-purple-200 rounded-2xl p-5 mb-6 flex items-center gap-4 animate-fade-in-up">
             <div className="bg-purple-600 p-3 rounded-xl"><RefreshCw className="w-6 h-6 text-white" /></div>
@@ -173,7 +190,6 @@ export default function CustomerDashboard() {
         <div className="grid lg:grid-cols-5 gap-8">
           <div className="lg:col-span-2">
             <OrderForm customerId={user!.id} onSuccess={loadOrders} />
-            {/* Demo tugmasi — himoyada eslatma mexanizmini ko'rsatish uchun */}
             <button onClick={simulateRecurring}
               className="mt-3 w-full bg-white border border-purple-200 text-purple-700 py-2.5 rounded-xl font-semibold hover:bg-purple-50 transition flex items-center justify-center gap-2 text-sm">
               <Bell className="w-4 h-4" /> Demo: oylik eslatmani ko'rish
@@ -204,6 +220,7 @@ export default function CustomerDashboard() {
                 displayOrders.map((order) => (
                   <div key={order.id} className="relative">
                     <OrderCard order={order} />
+                    
                     {order.status === 'new' && (
                       <button onClick={() => handleCancelOrder(order.id)}
                         className="absolute top-4 right-4 bg-red-50 text-red-600 p-2 rounded-lg hover:bg-red-100 transition"
@@ -211,7 +228,28 @@ export default function CustomerDashboard() {
                         <XCircle className="w-5 h-5" />
                       </button>
                     )}
+
                     {order.status === 'on_the_way' && <TrackingPanel order={order} />}
+
+                    {/* TIMELINE — har doim ko'rinadi */}
+                    <OrderTimeline order={order} />
+
+                    {/* BAHOLASH TUGMASI — faqat yetkazilgan va baholanmagan */}
+                    {order.status === 'delivered' && !order.rating && (
+                      <button onClick={() => setRateOrderId(order.id)}
+                        className="mt-2 w-full bg-yellow-50 border border-yellow-200 text-yellow-700 py-2.5 rounded-xl font-semibold hover:bg-yellow-100 transition flex items-center justify-center gap-2">
+                        <Star className="w-5 h-5 fill-current" /> Haydovchini baholang
+                      </button>
+                    )}
+                    
+                    {/* AGAR ALLAQACHON BAHO BERILGAN BO'LSA */}
+                    {order.rating && (
+                      <div className="mt-2 flex items-center gap-1 text-yellow-500">
+                        {'★'.repeat(order.rating)}{'☆'.repeat(5 - order.rating)}
+                        <span className="text-xs text-gray-500 ml-2">Sizning bahoyingiz</span>
+                      </div>
+                    )}
+
                     <button onClick={() => setReceiptOrder(order)}
                       className="mt-2 w-full bg-gray-100 text-gray-700 py-2 rounded-lg font-semibold hover:bg-gray-200 transition flex items-center justify-center gap-2">
                       <FileText className="w-4 h-4" /> Kvitansiya (PDF)
@@ -225,6 +263,7 @@ export default function CustomerDashboard() {
       </div>
 
       {receiptOrder && <Receipt order={receiptOrder} onClose={() => setReceiptOrder(null)} />}
+      {rateOrderId && <RatingModal orderId={rateOrderId} onClose={() => { setRateOrderId(null); loadOrders(); }} />}
     </div>
   );
 }

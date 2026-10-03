@@ -71,7 +71,7 @@ export default function Map({
     });
     return null;
   }
-
+  
   return (
     <MapContainer
       center={center}

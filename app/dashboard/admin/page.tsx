@@ -7,13 +7,16 @@ import OrderCard from '@/components/OrderCard';
 import { useRouter } from 'next/navigation';
 import { toast } from '@/components/Toast';
 import {
+  BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid, Cell,
+} from 'recharts';
+import {
   LogOut, Shield, TrendingUp, Package, Users, MapPin, Home, Calendar,
   ArrowUpRight, Download, Search, Filter, Warehouse, Save, Trophy, DollarSign,
 } from 'lucide-react';
 
 interface MfyReport { name: string; count: number; revenue: number; delivered: number; }
 interface RegionReport { name: string; count: number; revenue: number; }
-interface DriverPerf { id: string; name: string; delivered: number; revenue: number; }
+interface DriverPerf { id: string; name: string; delivered: number; revenue: number; avgRating: number; }
 
 const statusLabels: Record<OrderStatus, string> = {
   new: 'Yangi', confirmed: 'Tasdiqlangan', on_the_way: "Yo'lda",
@@ -28,10 +31,10 @@ export default function AdminDashboard() {
   const [regionReports, setRegionReports] = useState<RegionReport[]>([]);
   const [driverPerf, setDriverPerf] = useState<DriverPerf[]>([]);
   const [stockItems, setStockItems] = useState<CylinderType[]>([]);
+  const [weeklyData, setWeeklyData] = useState<{ day: string; revenue: number }[]>([]);
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<'overview' | 'mfy' | 'regions' | 'drivers' | 'stock'>('overview');
 
-  // Qidiruv va filtrlar
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [dateFilter, setDateFilter] = useState<string>('all');
@@ -73,6 +76,7 @@ export default function AdminDashboard() {
         revenue: typed.filter((o) => o.status === 'delivered').reduce((s, o) => s + Number(o.total_price), 0),
       });
 
+      // MFY hisoboti
       const mfyMap: Record<string, MfyReport> = {};
       typed.forEach((o) => {
         if (!o.mfy) return;
@@ -83,6 +87,7 @@ export default function AdminDashboard() {
       });
       setMfyReports(Object.values(mfyMap).sort((a, b) => b.count - a.count));
 
+      // Hudud hisoboti
       const regionMap: Record<string, RegionReport> = {};
       typed.forEach((o) => {
         const key = o.region || "Noma'lum";
@@ -92,20 +97,38 @@ export default function AdminDashboard() {
       });
       setRegionReports(Object.values(regionMap).sort((a, b) => b.count - a.count));
 
-      // Haydovchilar samaradorligi
-      const drvMap: Record<string, DriverPerf> = {};
+      // Haydovchilar samaradorligi (baho bilan)
+      const drvMap: Record<string, DriverPerf & { ratings: number[] }> = {};
       typed.forEach((o) => {
         if (!o.driver_id || o.status !== 'delivered') return;
-        if (!drvMap[o.driver_id]) drvMap[o.driver_id] = { id: o.driver_id, name: 'Haydovchi', delivered: 0, revenue: 0 };
+        if (!drvMap[o.driver_id]) drvMap[o.driver_id] = { id: o.driver_id, name: 'Haydovchi', delivered: 0, revenue: 0, avgRating: 0, ratings: [] };
         drvMap[o.driver_id].delivered++;
         drvMap[o.driver_id].revenue += Number(o.total_price);
+        if (o.rating) drvMap[o.driver_id].ratings.push(o.rating);
       });
       const drvIds = Object.keys(drvMap);
       if (drvIds.length > 0) {
         const { data: profs } = await supabase.from('profiles').select('id, full_name').in('id', drvIds);
         profs?.forEach((p) => { if (drvMap[p.id]) drvMap[p.id].name = p.full_name; });
       }
-      setDriverPerf(Object.values(drvMap).sort((a, b) => b.delivered - a.delivered));
+      const perfList = Object.values(drvMap).map((d) => ({
+        ...d,
+        avgRating: d.ratings.length > 0 ? +(d.ratings.reduce((a, b) => a + b, 0) / d.ratings.length).toFixed(1) : 0,
+      })).sort((a, b) => b.delivered - a.delivered);
+      setDriverPerf(perfList);
+
+      // Haftalik daromad grafigi (oxirgi 7 kun)
+      const days: { day: string; revenue: number }[] = [];
+      for (let i = 6; i >= 0; i--) {
+        const d = new Date();
+        d.setDate(d.getDate() - i);
+        const label = d.toLocaleDateString('uz-UZ', { weekday: 'short' });
+        const rev = typed
+          .filter((o) => o.status === 'delivered' && new Date(o.created_at).toDateString() === d.toDateString())
+          .reduce((s, o) => s + Number(o.total_price), 0);
+        days.push({ day: label, revenue: rev });
+      }
+      setWeeklyData(days);
     }
 
     // Ombor
@@ -113,7 +136,6 @@ export default function AdminDashboard() {
     if (stock) setStockItems(stock as CylinderType[]);
   };
 
-  // Qidiruv + filtrlash (memo)
   const filteredOrders = useMemo(() => {
     return orders.filter((o) => {
       if (statusFilter !== 'all' && o.status !== statusFilter) return false;
@@ -182,6 +204,7 @@ export default function AdminDashboard() {
   const maxMfy = Math.max(...mfyReports.map((m) => m.count), 1);
   const maxRegion = Math.max(...regionReports.map((r) => r.count), 1);
   const maxDrv = Math.max(...driverPerf.map((d) => d.delivered), 1);
+  const maxRev = Math.max(...weeklyData.map((d) => d.revenue), 1);
 
   const tabs = [
     { k: 'overview', l: '📋 Buyurtmalar' },
@@ -228,6 +251,26 @@ export default function AdminDashboard() {
           </div>
         </div>
 
+        {/* HAFTALIK GRAFIK */}
+        <div className="bg-white p-6 rounded-2xl shadow-sm border mb-6">
+          <h3 className="font-bold text-gray-800 mb-4 flex items-center gap-2">
+            <TrendingUp className="w-5 h-5 text-blue-600" /> So'nggi 7 kun daromadi
+          </h3>
+          <ResponsiveContainer width="100%" height={220}>
+            <BarChart data={weeklyData}>
+              <CartesianGrid strokeDasharray="3 3" vertical={false} />
+              <XAxis dataKey="day" fontSize={12} tickLine={false} axisLine={false} />
+              <YAxis fontSize={12} tickLine={false} axisLine={false} tickFormatter={(v) => `${(v / 1000).toFixed(0)}k`} />
+              <Tooltip formatter={(v: any) => [`${Number(v).toLocaleString()} so'm`, 'Daromad']} />
+              <Bar dataKey="revenue" radius={[6, 6, 0, 0]}>
+                {weeklyData.map((entry, idx) => (
+                  <Cell key={idx} fill={entry.revenue === maxRev ? '#2563eb' : '#93c5fd'} />
+                ))}
+              </Bar>
+            </BarChart>
+          </ResponsiveContainer>
+        </div>
+
         {/* TABLAR */}
         <div className="bg-white rounded-2xl shadow-sm border overflow-hidden">
           <div className="flex border-b overflow-x-auto">
@@ -251,12 +294,9 @@ export default function AdminDashboard() {
                 <div className="flex flex-col md:flex-row gap-3 mb-5">
                   <div className="relative flex-1">
                     <Search className="w-5 h-5 text-gray-400 absolute left-3 top-1/2 -translate-y-1/2" />
-                    <input
-                      value={search}
-                      onChange={(e) => setSearch(e.target.value)}
+                    <input value={search} onChange={(e) => setSearch(e.target.value)}
                       placeholder="Qidiruv: mijoz, MFY, manzil, kvitansiya №..."
-                      className="w-full pl-11 pr-4 py-2.5 border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none"
-                    />
+                      className="w-full pl-11 pr-4 py-2.5 border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none" />
                   </div>
                   <select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)}
                     className="px-4 py-2.5 border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none">
@@ -354,7 +394,7 @@ export default function AdminDashboard() {
               </div>
             )}
 
-            {/* HAYDOVCHILAR SAMARADORLIGI */}
+            {/* HAYDOVCHILAR SAMARADORLIGI (BAHO BILAN) */}
             {activeTab === 'drivers' && (
               <div>
                 <h3 className="text-xl font-bold mb-4 flex items-center gap-2"><Trophy className="w-5 h-5 text-amber-500" /> Haydovchilar samaradorligi</h3>
@@ -366,6 +406,7 @@ export default function AdminDashboard() {
                           <th className="py-3">#</th>
                           <th className="py-3">Haydovchi</th>
                           <th className="py-3 text-center">Yetkazilgan</th>
+                          <th className="py-3 text-center">O'rtacha ⭐</th>
                           <th className="py-3 text-right">Daromad</th>
                           <th className="py-3 w-1/4">Samara</th>
                         </tr>
@@ -380,6 +421,13 @@ export default function AdminDashboard() {
                             </td>
                             <td className="py-3 font-semibold text-gray-800">{d.name}</td>
                             <td className="py-3 text-center font-bold text-blue-600">{d.delivered}</td>
+                            <td className="py-3 text-center">
+                              {d.avgRating > 0 ? (
+                                <span className="text-yellow-500 font-bold">⭐ {d.avgRating}</span>
+                              ) : (
+                                <span className="text-gray-400 text-xs">baholanmagan</span>
+                              )}
+                            </td>
                             <td className="py-3 text-right font-semibold text-green-600">
                               <span className="flex items-center justify-end gap-1"><DollarSign className="w-3 h-3" />{d.revenue.toLocaleString()}</span>
                             </td>

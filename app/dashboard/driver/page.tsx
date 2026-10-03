@@ -7,9 +7,11 @@ import OrderCard from '@/components/OrderCard';
 import Map from '@/components/Map';
 import { toast } from '@/components/Toast';
 import { requestNotifPermission, hasNotifPermission, sendPush } from '@/lib/notifications';
+import ProfileEditor from '@/components/ProfileEditor';
+import { getNavUrl } from '@/lib/navigation';
 import { useRouter } from 'next/navigation';
 import {
-  LogOut, Truck, MapPin, Star, Filter, TrendingUp, Package, Calendar, Navigation, Radio, Bell, BellRing,
+  LogOut, Truck, MapPin, Star, Filter, TrendingUp, Package, Calendar, Navigation, Radio, Bell, BellRing, User, ExternalLink,
 } from 'lucide-react';
 
 interface MfyStat {
@@ -274,6 +276,21 @@ export default function DriverDashboard() {
       </nav>
 
       <div className="container mx-auto px-4 py-8">
+        {/* PROFIL */}
+        <div className="mb-6">
+          <details className="group">
+            <summary className="cursor-pointer list-none bg-white p-4 rounded-2xl shadow-sm border flex items-center justify-between hover:bg-gray-50 transition">
+              <span className="font-semibold text-gray-800 flex items-center gap-2">
+                <User className="w-5 h-5 text-blue-600" /> Profilimni tahrirlash
+              </span>
+              <span className="text-gray-400 group-open:rotate-180 transition-transform">▼</span>
+            </summary>
+            <div className="mt-3">
+              <ProfileEditor profile={user!} onSaved={() => checkUser()} />
+            </div>
+          </details>
+        </div>
+
         {/* JOYLASHUV BOSHQARUVI */}
         <div className="bg-white p-5 rounded-2xl shadow-sm border mb-6 flex flex-col md:flex-row md:items-center md:justify-between gap-4">
           <div className="flex items-center gap-3">
@@ -419,12 +436,32 @@ export default function DriverDashboard() {
             </p>
           ) : (
             filteredOrders.map((order) => (
-              <OrderCard
-                key={order.id}
-                order={order}
-                showActions={true}
-                onUpdateStatus={handleUpdateStatus}
-              />
+              <div key={order.id}>
+                <OrderCard
+                  order={order}
+                  showActions={true}
+                  onUpdateStatus={handleUpdateStatus}
+                />
+                {/* NAVIGATSIYA TUGMALARI — haydovchi joylashuvi va mijoz manzili bor bo'lsa */}
+                {myPos && order.latitude && order.longitude && (
+                  <div className="flex gap-2 mt-2">
+                    <a
+                      href={getNavUrl(myPos[0], myPos[1], order.latitude, order.longitude, 'google')}
+                      target="_blank" rel="noopener noreferrer"
+                      className="flex-1 bg-green-600 text-white py-2.5 rounded-lg text-sm font-semibold flex items-center justify-center gap-1 hover:bg-green-700 transition"
+                    >
+                      <ExternalLink className="w-4 h-4" /> Google Maps
+                    </a>
+                    <a
+                      href={getNavUrl(myPos[0], myPos[1], order.latitude, order.longitude, 'yandex')}
+                      target="_blank" rel="noopener noreferrer"
+                      className="flex-1 bg-red-600 text-white py-2.5 rounded-lg text-sm font-semibold flex items-center justify-center gap-1 hover:bg-red-700 transition"
+                    >
+                      <ExternalLink className="w-4 h-4" /> Yandex
+                    </a>
+                  </div>
+                )}
+              </div>
             ))
           )}
         </div>
