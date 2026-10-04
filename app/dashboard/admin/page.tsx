@@ -5,6 +5,7 @@ import { supabase } from '@/lib/supabase';
 import { Order, OrderStatus, Profile, CylinderType } from '@/types';
 import OrderCard from '@/components/OrderCard';
 import Receipt from '@/components/Receipt';
+import FinanceTab from '@/components/FinanceTab';
 import { useRouter } from 'next/navigation';
 import { toast } from '@/components/Toast';
 import {
@@ -34,8 +35,7 @@ export default function AdminDashboard() {
   const [stockItems, setStockItems] = useState<CylinderType[]>([]);
   const [weeklyData, setWeeklyData] = useState<{ day: string; revenue: number }[]>([]);
   const [loading, setLoading] = useState(true);
-  const [activeTab, setActiveTab] = useState<'overview' | 'mfy' | 'regions' | 'drivers' | 'stock'>('overview');
-
+  const [activeTab, setActiveTab] = useState<'overview' | 'mfy' | 'regions' | 'drivers' | 'stock' | 'finance'>('overview');
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [dateFilter, setDateFilter] = useState<string>('all');
@@ -216,7 +216,8 @@ export default function AdminDashboard() {
     { k: 'mfy', l: '🏘️ MFY' },
     { k: 'regions', l: '🗺️ Hududlar' },
     { k: 'drivers', l: '🚚 Haydovchilar' },
-    { k: 'stock', l: '📦 Ombor' },
+        { k: 'stock', l: '📦 Ombor' },
+    { k: 'finance', l: '💰 Moliya' },
   ] as const;
 
   return (
@@ -491,6 +492,9 @@ export default function AdminDashboard() {
                 </div>
               </div>
             )}
+
+            {/* MOLIYA */}
+            {activeTab === 'finance' && <FinanceTab />}
           </div>
         </div>
       </div>
