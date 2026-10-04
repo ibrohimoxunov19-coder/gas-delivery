@@ -13,6 +13,7 @@ interface MapProps {
   }>;
   selected?: [number, number] | null;
   onLocationSelect?: (lat: number, lng: number) => void;
+  onMarkerDrag?: (lat: number, lng: number) => void; // 📍 markerni surganda
   height?: string;
 }
 
@@ -22,6 +23,7 @@ export default function Map({
   markers = [],
   selected = null,
   onLocationSelect,
+  onMarkerDrag,
   height = '400px',
 }: MapProps) {
   const [LeafletMap, setLeafletMap] = useState<any>(null);
@@ -54,6 +56,7 @@ export default function Map({
 
   const { MapContainer, TileLayer, Marker, Popup, useMapEvents, useMap } = LeafletMap;
 
+  // Markaz/zoom o'zgarganda xaritani sakratadi (klik/drag'da center o'zgarmaydi → siljimaydi)
   function MapController({ center, zoom }: { center: [number, number]; zoom: number }) {
     const map = useMap();
     const [lat, lng] = center;
@@ -63,6 +66,7 @@ export default function Map({
     return null;
   }
 
+  // Xaritaga klik — manzil qo'yish
   function ClickHandler() {
     useMapEvents({
       click(e: any) {
@@ -71,7 +75,7 @@ export default function Map({
     });
     return null;
   }
-  
+
   return (
     <MapContainer
       center={center}
@@ -84,6 +88,8 @@ export default function Map({
       />
       <MapController center={center} zoom={zoom} />
       {onLocationSelect && <ClickHandler />}
+
+      {/* Buyurtma markerlari (haydovchi/xarita ko'rinishi) */}
       {markers.map((marker, index) => (
         <Marker key={index} position={marker.position}>
           <Popup>
@@ -92,9 +98,20 @@ export default function Map({
           </Popup>
         </Marker>
       ))}
+
+      {/* 📍 Tanlangan manzil — SURILADIGAN (draggable) */}
       {selected && (
-        <Marker position={selected}>
-          <Popup>Tanlangan manzil</Popup>
+        <Marker
+          position={selected}
+          draggable={true}
+          eventHandlers={{
+            dragend: (e: any) => {
+              const ll = e.target.getLatLng();
+              onMarkerDrag?.(ll.lat, ll.lng);
+            },
+          }}
+        >
+          <Popup>📍 Tanlangan manzil — <b>suring</b></Popup>
         </Marker>
       )}
     </MapContainer>

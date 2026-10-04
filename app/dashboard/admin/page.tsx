@@ -63,8 +63,7 @@ export default function AdminDashboard() {
   const loadAll = async () => {
     const { data, error } = await supabase
       .from('orders')
-      .select(`*, profiles:customer_id (full_name, phone), cylinder_types:cylinder_type_id (name)`)
-      .order('created_at', { ascending: false });
+      .select(`*, profiles:customer_id (full_name, phone, address), driver_profile:profiles!driver_id (full_name, phone, car_plate, car_model, driver_phone), cylinder_types:cylinder_type_id (name, weight_kg, price)`)      .order('created_at', { ascending: false });
 
     if (!error && data) {
       const typed = data as Order[];

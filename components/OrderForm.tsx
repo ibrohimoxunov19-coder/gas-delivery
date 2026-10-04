@@ -3,12 +3,12 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '@/lib/supabase';
 import { REGIONS } from '@/lib/regions';
-import { MFY_SUGGESTIONS } from '@/lib/mfy';
+import { MFY_ZONES } from '@/lib/mfyZones';
 import { CylinderType, PaymentMethod } from '@/types';
 import Map from './Map';
 import { toast } from './Toast';
 import {
-  ShoppingCart, MapPin, AlertCircle, Home, Wallet, RefreshCw, Clock, Recycle,
+  ShoppingCart, MapPin, AlertCircle, Home, Wallet, RefreshCw, Clock, Recycle, Crosshair,
 } from 'lucide-react';
 
 interface OrderFormProps {
@@ -37,6 +37,7 @@ export default function OrderForm({ customerId, onSuccess }: OrderFormProps) {
   const [address, setAddress] = useState('');
   const [latitude, setLatitude] = useState<number | null>(null);
   const [longitude, setLongitude] = useState<number | null>(null);
+  const [gpsLoc, setGpsLoc] = useState<[number, number] | null>(null); // 📍 xarita sakrashi uchun
   const [notes, setNotes] = useState('');
   const [payment, setPayment] = useState<PaymentMethod>('cash');
   const [deliveryTime, setDeliveryTime] = useState(DELIVERY_SLOTS[0]);
@@ -60,12 +61,19 @@ export default function OrderForm({ customerId, onSuccess }: OrderFormProps) {
   const selectedRegion = REGIONS.find((r) => r.name === region);
   const selectedDistrict = selectedRegion?.districts.find((d) => d.name === district);
 
-  const mapCenter: [number, number] = selectedDistrict
-    ? [selectedDistrict.lat, selectedDistrict.lng]
-    : selectedRegion
-      ? [selectedRegion.lat, selectedRegion.lng]
-      : [41.37, 64.58];
-  const mapZoom = selectedDistrict ? 13 : selectedRegion ? 9 : 6;
+  // 🏙️ Shahar / tuman ajratish (optgroup uchun)
+  const cityList = selectedRegion?.districts.filter((d) => d.name.includes('shahri')) || [];
+  const townList = selectedRegion?.districts.filter((d) => !d.name.includes('shahri')) || [];
+
+  // Xarita faqat GPS yoki tuman/viloyat tanlovida sakraydi; klik/drag'da SILJIMAYDI
+  const mapCenter: [number, number] = gpsLoc
+    ? gpsLoc
+    : selectedDistrict
+      ? [selectedDistrict.lat, selectedDistrict.lng]
+      : selectedRegion
+        ? [selectedRegion.lat, selectedRegion.lng]
+        : [41.37, 64.58];
+  const mapZoom = gpsLoc ? 15 : selectedDistrict ? 13 : selectedRegion ? 9 : 6;
 
   const locationSelected = latitude !== null && longitude !== null;
   const selectedCylinder = cylinderTypes.find((ct) => ct.id === selectedType);
@@ -87,19 +95,47 @@ export default function OrderForm({ customerId, onSuccess }: OrderFormProps) {
   const handleRegionChange = (value: string) => {
     setRegion(value);
     setDistrict('');
+    setGpsLoc(null);
     setLatitude(null);
     setLongitude(null);
   };
 
   const handleDistrictChange = (value: string) => {
     setDistrict(value);
+    setGpsLoc(null);
     setLatitude(null);
     setLongitude(null);
   };
 
+  // Xaritaga klik — manzil qo'yiladi (xarita siljimaydi, chunki gpsLoc null)
   const handleLocationSelect = (lat: number, lng: number) => {
     setLatitude(lat);
     setLongitude(lng);
+  };
+
+  // Markerni surish — aniq uyga qo'yish
+  const handleMarkerDrag = (lat: number, lng: number) => {
+    setLatitude(lat);
+    setLongitude(lng);
+  };
+
+  // 📍 GPS — ayni turgan joyga nuqta tushadi
+  const locateMe = () => {
+    if (!('geolocation' in navigator)) {
+      toast("Qurilmangiz geolokatsiyani qo'llab-quvvatlamaydi", 'error');
+      return;
+    }
+    navigator.geolocation.getCurrentPosition(
+      (pos) => {
+        const la = pos.coords.latitude;
+        const ln = pos.coords.longitude;
+        setLatitude(la);
+        setLongitude(ln);
+        setGpsLoc([la, ln]);
+        toast('Joylashuvingiz aniqlandi 📍 — kerak bolsa suring', 'success');
+      },
+      () => toast('Joylashuvga ruxsat berilmadi', 'error')
+    );
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -159,6 +195,7 @@ export default function OrderForm({ customerId, onSuccess }: OrderFormProps) {
       setMfy('');
       setLatitude(null);
       setLongitude(null);
+      setGpsLoc(null);
       setNotes('');
       setQuantity(1);
       setIsTradeIn(false);
@@ -213,13 +250,21 @@ export default function OrderForm({ customerId, onSuccess }: OrderFormProps) {
             required
           >
             <option value="">Tanlang...</option>
-            {selectedRegion?.districts.map((d) => (
-              <option key={d.name} value={d.name}>{d.name}</option>
-            ))}
+            {cityList.length > 0 && (
+              <optgroup label="🏙️ Shaharlar">
+                {cityList.map((d) => (<option key={d.name} value={d.name}>{d.name}</option>))}
+              </optgroup>
+            )}
+            {townList.length > 0 && (
+              <optgroup label="🏘️ Tumanlar">
+                {townList.map((d) => (<option key={d.name} value={d.name}>{d.name}</option>))}
+              </optgroup>
+            )}
           </select>
         </div>
       </div>
 
+      {/* MFY — datalist MFY_ZONES dan */}
       <div>
         <label className="block text-sm font-medium mb-1 text-gray-700 flex items-center gap-1">
           <Home className="w-4 h-4 text-blue-600" /> MFY (mahalla) nomi
@@ -234,7 +279,7 @@ export default function OrderForm({ customerId, onSuccess }: OrderFormProps) {
           required
         />
         <datalist id="mfy-suggestions">
-          {MFY_SUGGESTIONS.map((name) => (<option key={name} value={name} />))}
+          {MFY_ZONES.map((z) => (<option key={z.name} value={z.name} />))}
         </datalist>
       </div>
 
@@ -271,7 +316,7 @@ export default function OrderForm({ customerId, onSuccess }: OrderFormProps) {
         />
       </div>
 
-      {/* Yetkazish vaqti */}
+      {/* Yetkazish vaqti (slotlar) */}
       <div>
         <label className="block text-sm font-medium mb-1 text-gray-700 flex items-center gap-1">
           <Clock className="w-4 h-4 text-blue-600" /> Yetkazib berish vaqti
@@ -368,24 +413,35 @@ export default function OrderForm({ customerId, onSuccess }: OrderFormProps) {
         />
       </div>
 
+      {/* Xarita + 📍 geolocation + drag */}
       <div>
-        <label className="block text-sm font-medium mb-1 flex items-center gap-2 text-gray-700">
-          <MapPin className="w-4 h-4 text-blue-600" /> Xaritada manzilni belgilang
-        </label>
+        <div className="flex items-center justify-between mb-1">
+          <label className="block text-sm font-medium flex items-center gap-2 text-gray-700">
+            <MapPin className="w-4 h-4 text-blue-600" /> Xaritada manzilni belgilang
+          </label>
+          <button
+            type="button"
+            onClick={locateMe}
+            className="text-xs font-semibold text-blue-600 hover:bg-blue-50 px-3 py-1.5 rounded-lg transition flex items-center gap-1"
+          >
+            <Crosshair className="w-4 h-4" /> Joylashuvimni aniqlash
+          </button>
+        </div>
         <Map
           center={mapCenter}
           zoom={mapZoom}
           selected={locationSelected ? [latitude!, longitude!] : null}
           onLocationSelect={handleLocationSelect}
+          onMarkerDrag={handleMarkerDrag}
           height="300px"
         />
         {locationSelected ? (
           <p className="text-sm text-green-600 mt-2 font-medium">
-            ✓ Joylashuv tanlandi: {latitude!.toFixed(4)}, {longitude!.toFixed(4)}
+            ✓ Joylashuv tanlandi: {latitude!.toFixed(4)}, {longitude!.toFixed(4)} — <span className="text-gray-500">(nuqtani suring)</span>
           </p>
         ) : (
           <p className="text-sm text-amber-600 mt-2 font-medium flex items-center gap-1">
-            <AlertCircle className="w-4 h-4" /> Buyurtma berish uchun xaritada manzilni belgilang
+            <AlertCircle className="w-4 h-4" /> "Joylashuvimni aniqlash" bosing yoki xaritaga klik qiling
           </p>
         )}
       </div>

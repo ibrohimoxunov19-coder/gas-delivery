@@ -9,10 +9,10 @@ export interface Profile {
   latitude?: number;
   longitude?: number;
   created_at: string;
-  // Yangi maydonlar
   car_plate?: string;
   car_model?: string;
   driver_phone?: string;
+  home_district?: string;
 }
 
 export interface CylinderType {
@@ -45,6 +45,7 @@ export interface Order {
   is_trade_in: boolean;
   empty_balloons: number;
   delivery_time?: string;
+  delivered_at?: string; // ✅ yetkazilgan aniq vaqt
   receipt_no?: string;
   is_recurring: boolean;
   rating?: number;
@@ -53,5 +54,15 @@ export interface Order {
   updated_at: string;
   profiles?: Profile;
   cylinder_types?: CylinderType;
-  driver_profile?: Profile; // <-- join orqali keladi
+  driver_profile?: Profile;
+}
+
+export interface Expense {
+  id: number;
+  category: string;
+  amount: number;
+  note?: string;
+  expense_date: string;
+  created_by?: string;
+  created_at: string;
 }
