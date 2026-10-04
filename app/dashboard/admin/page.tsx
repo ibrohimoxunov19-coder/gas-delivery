@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { supabase } from '@/lib/supabase';
 import { Order, OrderStatus, Profile, CylinderType } from '@/types';
 import OrderCard from '@/components/OrderCard';
+import Receipt from '@/components/Receipt';
 import { useRouter } from 'next/navigation';
 import { toast } from '@/components/Toast';
 import {
@@ -38,6 +39,7 @@ export default function AdminDashboard() {
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [dateFilter, setDateFilter] = useState<string>('all');
+  const [receiptOrder, setReceiptOrder] = useState<Order | null>(null); // 📄 chek
 
   const router = useRouter();
 
@@ -63,7 +65,8 @@ export default function AdminDashboard() {
   const loadAll = async () => {
     const { data, error } = await supabase
       .from('orders')
-      .select(`*, profiles:customer_id (full_name, phone, address), driver_profile:profiles!driver_id (full_name, phone, car_plate, car_model, driver_phone), cylinder_types:cylinder_type_id (name, weight_kg, price)`)      .order('created_at', { ascending: false });
+      .select(`*, profiles:customer_id (full_name, phone, address), driver_profile:profiles!driver_id (full_name, phone, car_plate, car_model, driver_phone), cylinder_types:cylinder_type_id (name, weight_kg, price)`)
+      .order('created_at', { ascending: false });
 
     if (!error && data) {
       const typed = data as Order[];
@@ -163,9 +166,11 @@ export default function AdminDashboard() {
   }, [orders, search, statusFilter, dateFilter]);
 
   const handleUpdateStatus = async (orderId: number, status: OrderStatus) => {
+    const updateData: Record<string, unknown> = { status, updated_at: new Date().toISOString() };
+    if (status === 'delivered') updateData.delivered_at = new Date().toISOString(); // ✅ aniq vaqt
     const { error } = await supabase
       .from('orders')
-      .update({ status, updated_at: new Date().toISOString() })
+      .update(updateData)
       .eq('id', orderId);
     if (!error) { toast('Holat yangilandi', 'success'); loadAll(); }
   };
@@ -180,10 +185,11 @@ export default function AdminDashboard() {
   };
 
   const handleExportCSV = () => {
-    const headers = ['ID', 'Sana', 'Mijoz', 'Telefon', 'Viloyat', 'Tuman', 'MFY', 'Manzil', 'Mahsulot', 'Miqdor', "To'lov", 'Status', 'Narx'];
+    const headers = ['ID', 'Sana', 'Mijoz', 'Telefon', 'Haydovchi', 'Viloyat', 'Tuman', 'MFY', 'Manzil', 'Mahsulot', 'Miqdor', "To'lov", 'Status', 'Narx'];
     const rows = filteredOrders.map((o) => [
       o.id, new Date(o.created_at).toLocaleString('uz-UZ'),
       o.profiles?.full_name || '-', o.profiles?.phone || '-',
+      o.driver_profile?.full_name || '-',
       o.region || '-', o.district || '-', o.mfy || '-', o.delivery_address,
       o.cylinder_types?.name || '-', o.quantity, o.payment_method || 'cash', o.status, o.total_price,
     ]);
@@ -324,7 +330,13 @@ export default function AdminDashboard() {
                     <p className="text-gray-500 text-center py-12 col-span-2">Hech narsa topilmadi</p>
                   ) : (
                     filteredOrders.map((order) => (
-                      <OrderCard key={order.id} order={order} showActions onUpdateStatus={handleUpdateStatus} />
+                      <div key={order.id}>
+                        <OrderCard order={order} showActions onUpdateStatus={handleUpdateStatus} />
+                        <button onClick={() => setReceiptOrder(order)}
+                          className="mt-2 w-full bg-gray-100 text-gray-700 py-2 rounded-lg font-semibold hover:bg-gray-200 transition flex items-center justify-center gap-2 text-sm">
+                          📄 Kvitansiya (chek)
+                        </button>
+                      </div>
                     ))
                   )}
                 </div>
@@ -482,6 +494,9 @@ export default function AdminDashboard() {
           </div>
         </div>
       </div>
+
+      {/* 📄 CHEK MODALI */}
+      {receiptOrder && <Receipt order={receiptOrder} onClose={() => setReceiptOrder(null)} />}
     </div>
   );
 }
