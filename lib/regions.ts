@@ -121,25 +121,25 @@ export const REGIONS: Region[] = [
       { name: "Xatirchi tumani", lat: 40.42, lng: 66.22 },
     ],
   },
-  {
-    name: "Namangan viloyati", lat: 40.99, lng: 71.67,
+    {
+    name: "Namangan viloyati", lat: 40.9983, lng: 71.6726,
     districts: [
-      // Namangan shahri tumanlari
-      { name: "Namangan shahri", lat: 40.99, lng: 71.67 },
-      { name: "Davlatobod tumani", lat: 41.02, lng: 71.62 },
-      { name: "Yangi Namangan tumani", lat: 41.00, lng: 71.72 },
-      // Viloyat tumanlari
-      { name: "Chortoq tumani", lat: 40.88, lng: 71.42 },
-      { name: "Chust tumani", lat: 40.88, lng: 71.12 },
-      { name: "Kosonsoy tumani", lat: 41.22, lng: 71.42 },
-      { name: "Mingbuloq tumani", lat: 40.72, lng: 71.02 },
-      { name: "Namangan tumani", lat: 40.95, lng: 71.55 },
-      { name: "Norin tumani", lat: 41.32, lng: 71.02 },
-      { name: "Pop tumani", lat: 40.82, lng: 71.22 },
-      { name: "Toʻraqorgʻon tumani", lat: 40.62, lng: 71.32 },
-      { name: "Uychi tumani", lat: 40.92, lng: 71.82 },
-      { name: "Uchqoʻrgon tumani", lat: 40.72, lng: 71.62 },
-      { name: "Yangiqoʻrgʻon tumani", lat: 40.78, lng: 71.78 },
+      // 🏙️ Viloyat markazi (topilgan: GeoNames 40.9983, 71.6726)
+      { name: "Namangan shahri", lat: 40.9983, lng: 71.6726 },
+      // 🏘️ 13 tuman (aniq koordinatalar)
+      { name: "Yangi Namangan tumani", lat: 41.035812, lng: 71.635137 },
+      { name: "Davlatobod tumani",     lat: 40.999765, lng: 71.599268 },
+      { name: "Chortoq tumani",        lat: 41.129428, lng: 71.835911 },
+      { name: "Namangan tumani",       lat: 40.922597, lng: 71.654658 },
+      { name: "Uchqoʻrgʻon tumani",    lat: 41.042797, lng: 72.111271 },
+      { name: "Yangiqoʻrgʻon tumani",  lat: 41.279546, lng: 71.719381 },
+      { name: "Toʻraqoʻrgʻon tumani",  lat: 40.956378, lng: 71.482522 },
+      { name: "Uychi tumani",          lat: 41.039077, lng: 71.920298 },
+      { name: "Kosonsoy tumani",       lat: 41.182108, lng: 71.553220 },
+      { name: "Chust tumani",          lat: 41.050516, lng: 71.201646 },
+      { name: "Pop tumani",            lat: 41.012198, lng: 70.780651 },
+      { name: "Mingbuloq tumani",      lat: 40.772558, lng: 71.366191 },
+      { name: "Norin tumani",          lat: 40.934316, lng: 72.013768 },
     ],
   },
   {
