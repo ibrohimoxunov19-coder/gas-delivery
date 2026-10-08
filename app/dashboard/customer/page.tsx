@@ -154,7 +154,7 @@ export default function CustomerDashboard() {
     if (!error) {
       toast('Tasdiqlandi! Chek tayyor 📄', 'success');
       loadOrders();
-    } else toast('Xatolik yuz berdi', 'error');
+    } else toast('Xatolik: ' + error.message, 'error');
   };
 
   const handleLogout = async () => {
@@ -170,9 +170,9 @@ export default function CustomerDashboard() {
     );
   }
 
-  // delivered — mijoz hali tasdiqlamagan, shuning uchun FAOL ro'yxatda
-  const activeOrders = orders.filter((o) => !['completed', 'cancelled'].includes(o.status));
-  const historyOrders = orders.filter((o) => ['completed', 'cancelled'].includes(o.status));
+  // ✅ TUZATILGAN FILTR: yetkazilgan (delivered) ham TARIXGA o'tadi
+  const activeOrders = orders.filter((o) => ['new', 'confirmed', 'on_the_way'].includes(o.status));
+  const historyOrders = orders.filter((o) => ['delivered', 'completed', 'cancelled'].includes(o.status));
   const displayOrders = activeTab === 'active' ? activeOrders : historyOrders;
 
   return (
@@ -195,7 +195,7 @@ export default function CustomerDashboard() {
                 <span className="hidden sm:inline">Yoqilgan</span>
               </span>
             )}
-            {/* 👤 1-band: profil ikonkasi (eski <details> o'rniga) */}
+            {/* 👤 1-band: profil ikonkasi (eski <details> O'CHDI) */}
             {user && <ProfileButton profile={user} onUpdated={checkUser} />}
             <button
               onClick={handleLogout}
@@ -279,7 +279,7 @@ export default function CustomerDashboard() {
                   <p>
                     {activeTab === 'active'
                       ? "Hozircha faol buyurtmalar yo'q"
-                      : 'Hali buyurtma tarixi yo\'q'}
+                      : "Hali buyurtma tarixi yo'q"}
                   </p>
                 </div>
               ) : (
@@ -302,7 +302,7 @@ export default function CustomerDashboard() {
                     {/* TIMELINE — har doim ko'rinadi */}
                     <OrderTimeline order={order} />
 
-                    {/* ✅ 4-band: delivered -> mijoz olganligini tasdiqlaydi */}
+                    {/* ✅ 4-band: delivered -> mijoz olganligini tasdiqlaydi (tarixda ham ko'rinadi) */}
                     {order.status === 'delivered' && (
                       <button
                         onClick={() => handleConfirmReceived(order.id)}
