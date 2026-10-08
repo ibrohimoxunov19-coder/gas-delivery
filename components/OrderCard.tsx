@@ -1,7 +1,9 @@
 'use client';
 
 import { Order, OrderStatus } from '@/types';
-import { Package, MapPin, Clock, CheckCircle, XCircle, Truck, Home } from 'lucide-react';
+import {
+  Package, MapPin, Clock, CheckCircle, XCircle, Truck, Home, CircleCheckBig,
+} from 'lucide-react';
 
 interface OrderCardProps {
   order: Order;
@@ -14,6 +16,7 @@ const statusLabels: Record<OrderStatus, string> = {
   confirmed: 'Tasdiqlangan',
   on_the_way: "Yo'lda",
   delivered: 'Yetkazildi',
+  completed: 'Yakunlandi',
   cancelled: 'Bekor qilindi',
 };
 
@@ -22,6 +25,7 @@ const statusColors: Record<OrderStatus, string> = {
   confirmed: 'bg-blue-100 text-blue-800',
   on_the_way: 'bg-purple-100 text-purple-800',
   delivered: 'bg-green-100 text-green-800',
+  completed: 'bg-emerald-100 text-emerald-800',
   cancelled: 'bg-red-100 text-red-800',
 };
 
@@ -30,16 +34,32 @@ const statusIcons: Record<OrderStatus, React.ReactNode> = {
   confirmed: <CheckCircle className="w-5 h-5" />,
   on_the_way: <Truck className="w-5 h-5" />,
   delivered: <Package className="w-5 h-5" />,
+  completed: <CircleCheckBig className="w-5 h-5" />,
   cancelled: <XCircle className="w-5 h-5" />,
 };
 
-export default function OrderCard({ order, onUpdateStatus, showActions = false }: OrderCardProps) {
+export default function OrderCard({
+  order,
+  onUpdateStatus,
+  showActions = false,
+}: OrderCardProps) {
+  // Haydovchi/admin uchun zanjir: delivered — uning yakuni (to'lov oldi).
+  // completed — mijozning ishi, shuning uchun haydovchi tugmasida chiqmaydi.
   const nextStatus: Record<OrderStatus, OrderStatus | null> = {
     new: 'confirmed',
     confirmed: 'on_the_way',
     on_the_way: 'delivered',
     delivered: null,
+    completed: null,
     cancelled: null,
+  };
+
+  // 💰 3-band: haydovchi yakuniy tugmasi — "to'lov oldi" ma'nosida
+  const actionLabel = (status: OrderStatus): string => {
+    const next = nextStatus[status];
+    if (!next) return '';
+    if (next === 'delivered') return "Yetkazdim & to'lov oldim 💰";
+    return `${statusLabels[next]} deb belgilash`;
   };
 
   const fullAddress = [order.region, order.district, order.delivery_address]
@@ -55,7 +75,9 @@ export default function OrderCard({ order, onUpdateStatus, showActions = false }
             {new Date(order.created_at).toLocaleString('uz-UZ')}
           </p>
         </div>
-        <span className={`px-3 py-1 rounded-full text-sm font-medium flex items-center gap-1 ${statusColors[order.status]}`}>
+        <span
+          className={`px-3 py-1 rounded-full text-sm font-medium flex items-center gap-1 ${statusColors[order.status]}`}
+        >
           {statusIcons[order.status]}
           {statusLabels[order.status]}
         </span>
@@ -101,9 +123,13 @@ export default function OrderCard({ order, onUpdateStatus, showActions = false }
       {showActions && nextStatus[order.status] && onUpdateStatus && (
         <button
           onClick={() => onUpdateStatus(order.id, nextStatus[order.status]!)}
-          className="w-full bg-blue-600 text-white py-2 rounded-lg font-semibold hover:bg-blue-700 transition"
+          className={`w-full py-2 rounded-lg font-semibold transition text-white ${
+            nextStatus[order.status] === 'delivered'
+              ? 'bg-green-600 hover:bg-green-700'
+              : 'bg-blue-600 hover:bg-blue-700'
+          }`}
         >
-          {statusLabels[nextStatus[order.status]!]} deb belgilash
+          {actionLabel(order.status)}
         </button>
       )}
     </div>

@@ -25,7 +25,7 @@ const DELIVERY_SLOTS = [
   'Ertaga 14:00–16:00',
 ];
 
-const TRADE_IN_DISCOUNT = 5000; // har bir bo'sh ballon uchun chegirma
+const TRADE_IN_DISCOUNT = 5000; // trade_in_price bo'sh bo'lsa, avtomatik chegirma
 
 export default function OrderForm({ customerId, onSuccess }: OrderFormProps) {
   const [cylinderTypes, setCylinderTypes] = useState<CylinderType[]>([]);
@@ -37,7 +37,7 @@ export default function OrderForm({ customerId, onSuccess }: OrderFormProps) {
   const [address, setAddress] = useState('');
   const [latitude, setLatitude] = useState<number | null>(null);
   const [longitude, setLongitude] = useState<number | null>(null);
-  const [gpsLoc, setGpsLoc] = useState<[number, number] | null>(null); // 📍 xarita sakrashi uchun
+  const [gpsLoc, setGpsLoc] = useState<[number, number] | null>(null);
   const [notes, setNotes] = useState('');
   const [payment, setPayment] = useState<PaymentMethod>('cash');
   const [deliveryTime, setDeliveryTime] = useState(DELIVERY_SLOTS[0]);
@@ -80,9 +80,16 @@ export default function OrderForm({ customerId, onSuccess }: OrderFormProps) {
   const stock = selectedCylinder?.stock ?? 0;
   const stockOk = quantity <= stock;
 
-  const basePrice = selectedCylinder ? selectedCylinder.price * quantity : 0;
-  const tradeInDiscount = isTradeIn ? emptyBalloons * TRADE_IN_DISCOUNT : 0;
-  const totalPrice = Math.max(basePrice - tradeInDiscount, 0);
+  // 💰 YANGI NARX MODELİ: almashtirish (arzon) + yangi (qimmat) aralashmasi
+  const unitNew = selectedCylinder?.price ?? 0;
+  const unitTrade = selectedCylinder
+    ? (selectedCylinder.trade_in_price ?? (selectedCylinder.price - TRADE_IN_DISCOUNT))
+    : 0;
+  const tradeInCount = isTradeIn ? Math.min(emptyBalloons, quantity) : 0;
+  const newCount = quantity - tradeInCount;
+  const newLine = newCount * unitNew;
+  const tradeLine = tradeInCount * unitTrade;
+  const totalPrice = newLine + tradeLine;
 
   const canSubmit =
     locationSelected &&
@@ -119,6 +126,12 @@ export default function OrderForm({ customerId, onSuccess }: OrderFormProps) {
     setLongitude(lng);
   };
 
+  // Trade-in belgilanganda bo'sh ballonlar = miqdorga teng (qulaylik), bekor qilsa 0
+  const handleTradeInToggle = (checked: boolean) => {
+    setIsTradeIn(checked);
+    setEmptyBalloons(checked ? quantity : 0);
+  };
+
   // 📍 GPS — ayni turgan joyga nuqta tushadi
   const locateMe = () => {
     if (!('geolocation' in navigator)) {
@@ -132,7 +145,7 @@ export default function OrderForm({ customerId, onSuccess }: OrderFormProps) {
         setLatitude(la);
         setLongitude(ln);
         setGpsLoc([la, ln]);
-        toast('Joylashuvingiz aniqlandi 📍 — kerak bolsa suring', 'success');
+        toast('Joylashuvingiz aniqlandi 📍 — kerak bo\'lsa suring', 'success');
       },
       () => toast('Joylashuvga ruxsat berilmadi', 'error')
     );
@@ -169,7 +182,7 @@ export default function OrderForm({ customerId, onSuccess }: OrderFormProps) {
         notes,
         payment_method: payment,
         is_trade_in: isTradeIn,
-        empty_balloons: isTradeIn ? emptyBalloons : 0,
+        empty_balloons: isTradeIn ? tradeInCount : 0,
         delivery_time: deliveryTime,
         receipt_no: receiptNo,
         is_recurring: isRecurring,
@@ -252,12 +265,16 @@ export default function OrderForm({ customerId, onSuccess }: OrderFormProps) {
             <option value="">Tanlang...</option>
             {cityList.length > 0 && (
               <optgroup label="🏙️ Shaharlar">
-                {cityList.map((d) => (<option key={d.name} value={d.name}>{d.name}</option>))}
+                {cityList.map((d) => (
+                  <option key={d.name} value={d.name}>{d.name}</option>
+                ))}
               </optgroup>
             )}
             {townList.length > 0 && (
               <optgroup label="🏘️ Tumanlar">
-                {townList.map((d) => (<option key={d.name} value={d.name}>{d.name}</option>))}
+                {townList.map((d) => (
+                  <option key={d.name} value={d.name}>{d.name}</option>
+                ))}
               </optgroup>
             )}
           </select>
@@ -283,7 +300,7 @@ export default function OrderForm({ customerId, onSuccess }: OrderFormProps) {
         </datalist>
       </div>
 
-      {/* Ballon turi + ombor */}
+      {/* Ballon turi + ombor (yangi/almashtirish narxi bilan) */}
       <div>
         <label className="block text-sm font-medium mb-1 text-gray-700">Ballon turi</label>
         <select
@@ -293,7 +310,7 @@ export default function OrderForm({ customerId, onSuccess }: OrderFormProps) {
         >
           {cylinderTypes.map((type) => (
             <option key={type.id} value={type.id}>
-              {type.name} — {type.price.toLocaleString()} so'm (omborda: {type.stock})
+              {type.name} — yangi {type.price.toLocaleString()} / almashtirish {(type.trade_in_price ?? (type.price - TRADE_IN_DISCOUNT)).toLocaleString()} so'm (omborda: {type.stock})
             </option>
           ))}
         </select>
@@ -311,7 +328,11 @@ export default function OrderForm({ customerId, onSuccess }: OrderFormProps) {
           min="1"
           max={stock || 1}
           value={quantity}
-          onChange={(e) => setQuantity(Number(e.target.value))}
+          onChange={(e) => {
+            const q = Number(e.target.value);
+            setQuantity(q);
+            if (isTradeIn) setEmptyBalloons(Math.min(emptyBalloons, q));
+          }}
           className="w-full px-4 py-2.5 border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none transition"
         />
       </div>
@@ -359,31 +380,35 @@ export default function OrderForm({ customerId, onSuccess }: OrderFormProps) {
         </div>
       </div>
 
-      {/* Trade-in */}
+      {/* 💰 Trade-in — belgilanganda narx JONLI o'zgaradi */}
       <div className="border border-gray-200 rounded-xl p-4 space-y-3">
         <label className="flex items-center gap-2 cursor-pointer">
           <input
             type="checkbox"
             checked={isTradeIn}
-            onChange={(e) => setIsTradeIn(e.target.checked)}
+            onChange={(e) => handleTradeInToggle(e.target.checked)}
             className="w-4 h-4 accent-blue-600"
           />
           <span className="text-sm font-medium text-gray-700 flex items-center gap-1">
-            <Recycle className="w-4 h-4 text-green-600" /> Bo'sh ballonni yangisiga almashtirish (trade-in)
+            <Recycle className="w-4 h-4 text-green-600" /> Bo'sh ballonni almashtirish (arzonroq)
           </span>
         </label>
         {isTradeIn && (
           <div>
             <label className="block text-xs text-gray-500 mb-1">
-              Qaytariladigan bo'sh ballonlar soni (har biri −{TRADE_IN_DISCOUNT.toLocaleString()} so'm)
+              Qaytariladigan bo'sh ballonlar soni (0–{quantity}) — har biri {unitTrade.toLocaleString()} so'mdan
             </label>
             <input
               type="number"
               min="0"
+              max={quantity}
               value={emptyBalloons}
-              onChange={(e) => setEmptyBalloons(Number(e.target.value))}
+              onChange={(e) => setEmptyBalloons(Math.max(0, Math.min(quantity, Number(e.target.value))))}
               className="w-full px-4 py-2.5 border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none transition"
             />
+            <p className="text-xs text-gray-400 mt-1">
+              💡 {tradeInCount} ta almashtirish ({unitTrade.toLocaleString()}) + {newCount} ta yangi ({unitNew.toLocaleString()})
+            </p>
           </div>
         )}
       </div>
@@ -456,17 +481,28 @@ export default function OrderForm({ customerId, onSuccess }: OrderFormProps) {
         />
       </div>
 
+      {/* 💰 JONLI NARX — trade-in o'zgarsa shu yerda ko'rinadi */}
       <div className="bg-gradient-to-r from-blue-50 to-cyan-50 p-4 rounded-xl border border-blue-100 space-y-1">
-        <div className="flex justify-between text-sm text-gray-600">
-          <span>Narx:</span><span>{basePrice.toLocaleString()} so'm</span>
-        </div>
-        {tradeInDiscount > 0 && (
-          <div className="flex justify-between text-sm text-green-600">
-            <span>Trade-in chegirma:</span><span>−{tradeInDiscount.toLocaleString()} so'm</span>
+        {isTradeIn && tradeInCount > 0 ? (
+          <>
+            <div className="flex justify-between text-sm text-gray-600">
+              <span>Yangi ballon ({newCount} dona):</span>
+              <span>{newLine.toLocaleString()} so'm</span>
+            </div>
+            <div className="flex justify-between text-sm text-green-700">
+              <span>Almashtirish ({tradeInCount} dona):</span>
+              <span>{tradeLine.toLocaleString()} so'm</span>
+            </div>
+          </>
+        ) : (
+          <div className="flex justify-between text-sm text-gray-600">
+            <span>Narx ({quantity} dona):</span>
+            <span>{totalPrice.toLocaleString()} so'm</span>
           </div>
         )}
         <div className="flex justify-between text-lg font-bold text-gray-800 pt-1 border-t border-blue-100">
-          <span>Jami:</span><span className="text-blue-600">{totalPrice.toLocaleString()} so'm</span>
+          <span>Jami:</span>
+          <span className="text-blue-600">{totalPrice.toLocaleString()} so'm</span>
         </div>
       </div>
 

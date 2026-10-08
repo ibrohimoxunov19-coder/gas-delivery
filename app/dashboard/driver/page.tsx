@@ -9,7 +9,7 @@ import Map from '@/components/Map';
 import Receipt from '@/components/Receipt';
 import { toast } from '@/components/Toast';
 import { requestNotifPermission, hasNotifPermission, sendPush } from '@/lib/notifications';
-import ProfileEditor from '@/components/ProfileEditor';
+import ProfileButton from '@/components/ProfileButton';
 import { getNavUrl } from '@/lib/navigation';
 import { buildDriverReport, exportDriverCSV, DriverReport, DRIVER_FEE_PER_DELIVERY } from '@/lib/reporting';
 import { useRouter } from 'next/navigation';
@@ -194,7 +194,7 @@ export default function DriverDashboard() {
             ) : (
               <span className="flex items-center gap-1 text-green-600 text-sm font-semibold"><BellRing className="w-4 h-4" /><span className="hidden sm:inline">Yoqilgan</span></span>
             )}
-            <span className="text-gray-600">{user?.full_name}</span>
+             {user && <ProfileButton profile={user} onUpdated={checkUser} />}
             <button onClick={handleLogout} className="flex items-center gap-2 text-red-600 hover:text-red-700"><LogOut className="w-5 h-5" /> Chiqish</button>
           </div>
         </div>

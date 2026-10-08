@@ -20,10 +20,11 @@ export interface CylinderType {
   name: string;
   weight_kg: number;
   price: number;
+  trade_in_price?: number | null; // 🆕 almashtirish narxi (arzon)
   stock: number;
 }
 
-export type OrderStatus = 'new' | 'confirmed' | 'on_the_way' | 'delivered' | 'cancelled';
+export type OrderStatus = 'new' | 'confirmed' | 'on_the_way' | 'delivered' | 'completed' | 'cancelled';
 export type PaymentMethod = 'cash' | 'payme' | 'click';
 
 export interface Order {
@@ -45,7 +46,8 @@ export interface Order {
   is_trade_in: boolean;
   empty_balloons: number;
   delivery_time?: string;
-  delivered_at?: string; // ✅ yetkazilgan aniq vaqt
+  delivered_at?: string;   // haydovchi to'lov oldi (3-band)
+  completed_at?: string;   // mijoz tasdiqladi -> chek (4-band)
   receipt_no?: string;
   is_recurring: boolean;
   rating?: number;
