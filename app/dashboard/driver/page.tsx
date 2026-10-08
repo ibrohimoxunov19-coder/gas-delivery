@@ -212,7 +212,7 @@ export default function DriverDashboard() {
         driver_profile:profiles!driver_id (full_name, phone, car_plate, car_model, driver_phone),
         cylinder_types:cylinder_type_id (name, weight_kg, price)`)
       .eq('driver_id', user.id)
-      .eq('status', 'delivered')
+      .in('status', ['delivered', 'completed'])
       .order('created_at', { ascending: false });
     if (!error && data) setReport(buildDriverReport(data as Order[]));
   };
@@ -241,7 +241,7 @@ export default function DriverDashboard() {
       .from('orders')
       .select('total_price, created_at')
       .eq('driver_id', driverId)
-      .eq('status', 'delivered');
+      .in('status', ['delivered', 'completed']);
     if (!error && data) {
       const now = new Date();
       const thisMonth = data.filter((o: any) => {

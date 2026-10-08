@@ -35,7 +35,7 @@ export default function FinanceTab() {
     const { data: orders } = await supabase
       .from('orders')
       .select('id, driver_id, total_price, rating, district, created_at, latitude, longitude, status')
-      .eq('status', 'delivered');
+      .in('status', ['delivered', 'completed']);
 
     // 2) chiqimlar
     const { data: exps } = await supabase

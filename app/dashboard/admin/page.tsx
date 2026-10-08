@@ -107,9 +107,9 @@ export default function AdminDashboard() {
       setStats({
         total: typed.length,
         new: typed.filter((o) => o.status === 'new').length,
-        delivered: typed.filter((o) => o.status === 'delivered').length,
+        delivered: typed.filter((o) => ['delivered', 'completed'].includes(o.status)).length,
         revenue: typed
-          .filter((o) => o.status === 'delivered')
+          .filter((o) => ['delivered', 'completed'].includes(o.status))
           .reduce((s, o) => s + Number(o.total_price), 0),
       });
 
@@ -120,7 +120,7 @@ export default function AdminDashboard() {
         if (!mfyMap[o.mfy]) mfyMap[o.mfy] = { name: o.mfy, count: 0, revenue: 0, delivered: 0 };
         mfyMap[o.mfy].count++;
         mfyMap[o.mfy].revenue += Number(o.total_price);
-        if (o.status === 'delivered') mfyMap[o.mfy].delivered++;
+        if (['delivered', 'completed'].includes(o.status)) mfyMap[o.mfy].delivered++;
       });
       setMfyReports(Object.values(mfyMap).sort((a, b) => b.count - a.count));
 
@@ -137,7 +137,7 @@ export default function AdminDashboard() {
       // Haydovchilar samaradorligi (baho bilan)
       const drvMap: Record<string, DriverPerf & { ratings: number[] }> = {};
       typed.forEach((o) => {
-        if (!o.driver_id || o.status !== 'delivered') return;
+        if (!o.driver_id || !['delivered', 'completed'].includes(o.status)) return;
         if (!drvMap[o.driver_id]) {
           drvMap[o.driver_id] = {
             id: o.driver_id,
@@ -179,7 +179,7 @@ export default function AdminDashboard() {
         d.setDate(d.getDate() - i);
         const label = d.toLocaleDateString('uz-UZ', { weekday: 'short' });
         const rev = typed
-          .filter((o) => o.status === 'delivered' && new Date(o.created_at).toDateString() === d.toDateString())
+          .filter((o) => ['delivered', 'completed'].includes(o.status) && new Date(o.created_at).toDateString() === d.toDateString())
           .reduce((s, o) => s + Number(o.total_price), 0);
         days.push({ day: label, revenue: rev });
       }
