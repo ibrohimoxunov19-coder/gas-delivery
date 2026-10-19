@@ -28,7 +28,7 @@ const SERVICES = [
   },
   {
     icon: ShieldCheck,
-    title: 'Xavfsiz to\'lov',
+    title: "Xavfsiz to'lov",
     text: 'Naqd, Payme, Click. Ma\'lumotlaringiz RLS bilan himoyalangan.',
     color: 'from-emerald-500 to-teal-500',
   },
@@ -36,8 +36,8 @@ const SERVICES = [
 
 const STEPS = [
   { n: '01', title: 'Buyurtma bering', text: 'Tuman va mahallani tanlang, xaritada aniq manzilni belgilang, ballon turini tanlang.' },
-  { n: '02', title: 'Haydovchi yo\'lga chiqadi', text: 'Buyurtmangiz bir zumda haydovchiga yetib boradi, holatini real vaqtda kuzatasiz.' },
-  { n: '03', title: 'Yetkazildi — chek tayyor', text: 'Ballonni tasdiqlaganingizdan so\'ng to\'liq kvitansiya shakllanadi va chop etiladi.' },
+  { n: '02', title: "Haydovchi yo'lga chiqadi", text: 'Buyurtmangiz bir zumda haydovchiga yetib boradi, holatini real vaqtda kuzatasiz.' },
+  { n: '03', title: 'Yetkazildi — chek tayyor', text: "Ballonni tasdiqlaganingizdan so'ng to'liq kvitansiya shakllanadi va chop etiladi." },
 ];
 
 const STACK = ['Next.js', 'Supabase', 'Leaflet', 'TypeScript', 'Tailwind CSS'];
@@ -55,10 +55,10 @@ export default function Home() {
 
   return (
     <div className="min-h-screen bg-white text-slate-800">
-      {/* ================= NAVBAR ================= */}
+      {/* ================= NAVBAR (to'liq oq — har doim ko'rinadi) ================= */}
       <header
-        className={`sticky top-0 z-50 bg-white/80 backdrop-blur-md transition-all duration-300 ${
-          scrolled ? 'shadow-md border-b border-slate-200/70' : 'border-b border-transparent'
+        className={`sticky top-0 z-50 bg-white border-b transition-shadow duration-300 ${
+          scrolled ? 'shadow-md border-slate-200' : 'border-slate-100'
         }`}
       >
         <div className="container mx-auto px-4 h-16 flex items-center justify-between">
@@ -101,9 +101,8 @@ export default function Home() {
           </div>
         </div>
 
-        {/* Mobil menyu */}
         {menuOpen && (
-          <div className="md:hidden border-t border-slate-200 bg-white/95 backdrop-blur-md">
+          <div className="md:hidden border-t border-slate-200 bg-white">
             <div className="container mx-auto px-4 py-3 flex flex-col gap-1">
               {NAV.map((l) => (
                 <a
@@ -129,13 +128,12 @@ export default function Home() {
 
       {/* ================= HERO ================= */}
       <section className="relative overflow-hidden bg-gradient-to-br from-blue-700 via-blue-600 to-cyan-600">
-        {/* Qatlamli glow langarlar — "tekis ko'k"ni buzadi, chuqurlik beradi */}
-        <div className="pointer-events-none absolute -top-32 -left-24 w-[28rem] h-[28rem] rounded-full bg-amber-400/25 blur-3xl" />
-        <div className="pointer-events-none absolute top-1/3 -right-24 w-[32rem] h-[32rem] rounded-full bg-cyan-300/25 blur-3xl" />
-        <div className="pointer-events-none absolute bottom-0 left-1/3 w-96 h-96 rounded-full bg-blue-400/20 blur-3xl" />
+        {/* Bitta yumshoq glow — xavfsiz, kontentni bosmaydi */}
+        <div className="pointer-events-none absolute -top-40 -left-32 w-[30rem] h-[30rem] rounded-full bg-amber-400/20 blur-3xl" />
+        <div className="pointer-events-none absolute -bottom-40 -right-32 w-[30rem] h-[30rem] rounded-full bg-cyan-300/20 blur-3xl" />
         {/* Nozik to'r naqshi */}
         <div
-          className="pointer-events-none absolute inset-0 opacity-[0.12]"
+          className="pointer-events-none absolute inset-0 opacity-[0.10]"
           style={{
             backgroundImage:
               'linear-gradient(rgba(255,255,255,.6) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,.6) 1px, transparent 1px)',
@@ -145,10 +143,10 @@ export default function Home() {
           }}
         />
 
-        <div className="relative container mx-auto px-4 py-20 lg:py-28 grid lg:grid-cols-2 gap-12 items-center">
+        <div className="relative container mx-auto px-4 py-20 lg:py-28 grid lg:grid-cols-2 gap-12 lg:gap-16 items-center">
           {/* Chap matn */}
           <div>
-            <span className="inline-flex items-center gap-2 bg-white/10 border border-white/20 backdrop-blur-sm text-white text-sm font-medium px-4 py-1.5 rounded-full">
+            <span className="inline-flex items-center gap-2 bg-white/10 border border-white/20 text-white text-sm font-medium px-4 py-1.5 rounded-full">
               <Flame className="w-4 h-4 text-amber-300" />
               O'zbekiston bo'ylab ishonchli xizmat
             </span>
@@ -177,13 +175,12 @@ export default function Home() {
               </Link>
               <a
                 href="#how"
-                className="inline-flex items-center gap-2 border border-white/30 bg-white/5 backdrop-blur-sm text-white px-7 py-3.5 rounded-xl font-semibold hover:bg-white/15 transition-all"
+                className="inline-flex items-center gap-2 border border-white/30 bg-white/5 text-white px-7 py-3.5 rounded-xl font-semibold hover:bg-white/15 transition-all"
               >
                 Batafsil
               </a>
             </div>
 
-            {/* Statistika */}
             <div className="mt-12 grid grid-cols-3 gap-6 max-w-md">
               {[
                 { v: '24/7', l: 'Xizmat vaqti' },
@@ -198,53 +195,47 @@ export default function Home() {
             </div>
           </div>
 
-          {/* O'ng glass karta */}
-          <div className="relative lg:justify-self-end w-full max-w-md">
-            <div className="absolute -inset-4 bg-gradient-to-tr from-amber-400/30 to-cyan-400/30 rounded-[2rem] blur-2xl opacity-60 animate-pulse" />
-            <div className="relative bg-white/10 backdrop-blur-xl border border-white/25 rounded-3xl shadow-2xl p-6 transition-transform duration-500 hover:-translate-y-2">
-              <div className="flex items-center justify-between">
+          {/* O'ng karta — ODDIY oqim, absolyutsiz, hech narsa kesilmaydi */}
+          <div className="w-full max-w-md mx-auto lg:mx-0 lg:ml-auto">
+            <div className="bg-white/10 border border-white/20 rounded-3xl shadow-2xl p-6 backdrop-blur-sm">
+              <div className="flex items-center justify-between gap-3">
                 <p className="text-white font-bold text-lg">Buyurtma #128</p>
-                <span className="inline-flex items-center gap-1.5 bg-emerald-400/20 text-emerald-200 border border-emerald-300/30 text-xs font-semibold px-3 py-1 rounded-full">
+                <span className="inline-flex items-center gap-1.5 bg-emerald-400/20 text-emerald-200 border border-emerald-300/30 text-xs font-semibold px-3 py-1 rounded-full shrink-0">
                   <span className="w-1.5 h-1.5 rounded-full bg-emerald-300 animate-pulse" />
                   Yo'lda
                 </span>
               </div>
 
-              <div className="mt-5 space-y-4">
+              <div className="mt-5 space-y-3">
                 {[
                   { icon: CheckCircle2, t: 'Buyurtma tasdiqlandi', c: 'text-emerald-300' },
-                  { icon: Truck, t: "Haydovchi yo'lda — xaritada kuzating", c: 'text-cyan-300' },
+                  { icon: Truck, t: "Haydovchi yo'lda — kuzating", c: 'text-cyan-300' },
                   { icon: Volume2, t: 'Ovozli bildirishnoma yuborildi', c: 'text-amber-300' },
                 ].map((row, i) => (
                   <div key={i} className="flex items-center gap-3">
-                    <span className={`w-9 h-9 rounded-xl bg-white/10 border border-white/15 flex items-center justify-center ${row.c}`}>
-                      <row.icon className="w-4.5 h-4.5" />
+                    <span className={`w-9 h-9 rounded-xl bg-white/10 border border-white/15 flex items-center justify-center shrink-0 ${row.c}`}>
+                      <row.icon className="w-5 h-5" />
                     </span>
                     <span className="text-white/90 text-sm">{row.t}</span>
                   </div>
                 ))}
               </div>
 
-              <div className="mt-5 pt-4 border-t border-white/15 flex items-center justify-between">
+              <div className="mt-5 pt-4 border-t border-white/15 flex items-center justify-between gap-3">
                 <span className="text-white/80 text-sm">12 kg ballon × 1</span>
-                <span className="text-white font-extrabold text-lg">120 000 so'm</span>
+                <span className="text-white font-extrabold text-lg whitespace-nowrap">120 000 so'm</span>
               </div>
-            </div>
 
-            {/* Suzuvchi mini-badge */}
-            <div className="absolute -bottom-5 -left-5 bg-white rounded-2xl shadow-xl px-4 py-3 flex items-center gap-2 hover:scale-105 transition-transform">
-              <span className="w-8 h-8 rounded-lg bg-amber-100 flex items-center justify-center">
-                <Star className="w-4 h-4 text-amber-500 fill-amber-500" />
-              </span>
-              <div>
-                <p className="text-xs font-bold text-slate-800 leading-none">4.9 / 5.0</p>
-                <p className="text-[11px] text-slate-500 mt-0.5">Mijoz bahosi</p>
+              {/* Badge ENDI KARTA ICHIDA, oqimda — ustma-ust tushmaydi */}
+              <div className="mt-4 flex items-center gap-2 bg-white/10 border border-white/15 rounded-xl px-4 py-2.5">
+                <Star className="w-4 h-4 text-amber-300 fill-amber-300 shrink-0" />
+                <span className="text-white font-bold text-sm">4.9 / 5.0</span>
+                <span className="text-white/60 text-xs">— mijoz bahosi</span>
               </div>
             </div>
           </div>
         </div>
 
-        {/* Pastki yumaloq chekka */}
         <div className="absolute bottom-0 inset-x-0 h-8 bg-white rounded-t-[2rem]" />
       </section>
 
@@ -290,13 +281,11 @@ export default function Home() {
           </div>
 
           <div className="mt-14 grid md:grid-cols-3 gap-8 relative">
-            {/* Ulovchi chiziq (desktop) */}
             <div className="hidden md:block absolute top-12 left-[16%] right-[16%] h-0.5 bg-gradient-to-r from-blue-200 via-cyan-200 to-amber-200" />
             {STEPS.map((st) => (
               <div key={st.n} className="relative text-center">
-                <span className="relative z-10 inline-flex w-24 h-24 rounded-full bg-white border border-slate-200 shadow-xl items-center justify-center text-3xl font-extrabold text-transparent bg-clip-text">
-                  <span className="absolute inset-0 rounded-full bg-gradient-to-br from-blue-600 to-cyan-500 opacity-10" />
-                  <span className="bg-gradient-to-br from-blue-600 to-cyan-500 bg-clip-text text-transparent">{st.n}</span>
+                <span className="relative z-10 inline-flex w-24 h-24 rounded-full bg-white border border-slate-200 shadow-xl items-center justify-center">
+                  <span className="bg-gradient-to-br from-blue-600 to-cyan-500 bg-clip-text text-3xl font-extrabold text-transparent">{st.n}</span>
                 </span>
                 <h3 className="mt-6 text-xl font-bold text-slate-900">{st.title}</h3>
                 <p className="mt-2 text-slate-500 leading-relaxed max-w-xs mx-auto">{st.text}</p>
