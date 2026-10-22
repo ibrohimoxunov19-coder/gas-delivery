@@ -41,8 +41,8 @@ export default function OrderForm({ customerId, onSuccess }: OrderFormProps) {
   const [notes, setNotes] = useState('');
   const [payment, setPayment] = useState<PaymentMethod>('cash');
   const [deliveryTime, setDeliveryTime] = useState(DELIVERY_SLOTS[0]);
-  const [isTradeIn, setIsTradeIn] = useState(false);
-  const [emptyBalloons, setEmptyBalloons] = useState(0);
+  const [isTradeIn, setIsTradeIn] = useState(true);
+  const [emptyBalloons, setEmptyBalloons] = useState(1);
   const [isRecurring, setIsRecurring] = useState(false);
   const [loading, setLoading] = useState(false);
 
@@ -390,7 +390,7 @@ export default function OrderForm({ customerId, onSuccess }: OrderFormProps) {
             className="w-4 h-4 accent-blue-600"
           />
           <span className="text-sm font-medium text-gray-700 flex items-center gap-1">
-            <Recycle className="w-4 h-4 text-green-600" /> Bo'sh ballonni almashtirish (arzonroq)
+            <Recycle className="w-4 h-4 text-green-600" /> To'liq almashtirish — bo'sh idishni qaytarasiz, faqat gaz narxini to'laysiz
           </span>
         </label>
         {isTradeIn && (
