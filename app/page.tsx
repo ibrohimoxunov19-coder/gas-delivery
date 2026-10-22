@@ -143,8 +143,7 @@ export default function Home() {
           }}
         />
 
-        <div className="relative container mx-auto px-4 py-20 lg:py-28 grid lg:grid-cols-2 gap-12 lg:gap-16 items-center">
-          {/* Chap matn */}
+        <div className="relative container mx-auto px-4 py-20 lg:py-28 grid lg:grid-cols-2 gap-12 lg:gap-16 items-start">          {/* Chap matn */}
           <div>
             <span className="inline-flex items-center gap-2 bg-white/10 border border-white/20 text-white text-sm font-medium px-4 py-1.5 rounded-full">
               <Flame className="w-4 h-4 text-amber-300" />
@@ -196,7 +195,7 @@ export default function Home() {
           </div>
 
           {/* O'ng karta — ODDIY oqim, absolyutsiz, hech narsa kesilmaydi */}
-          <div className="w-full max-w-md mx-auto lg:mx-0 lg:ml-auto">
+          <div className="w-full max-w-md mx-auto lg:mx-auto">
             <div className="bg-white/10 border border-white/20 rounded-3xl shadow-2xl p-6 backdrop-blur-sm">
               <div className="flex items-center justify-between gap-3">
                 <p className="text-white font-bold text-lg">Buyurtma #128</p>
@@ -223,8 +222,7 @@ export default function Home() {
 
               <div className="mt-5 pt-4 border-t border-white/15 flex items-center justify-between gap-3">
                 <span className="text-white/80 text-sm">12 kg ballon × 1</span>
-                <span className="text-white font-extrabold text-lg whitespace-nowrap">120 000 so'm</span>
-              </div>
+                <span className="text-white font-extrabold text-lg whitespace-nowrap">102 000 so'm</span>              </div>
 
               {/* Badge ENDI KARTA ICHIDA, oqimda — ustma-ust tushmaydi */}
               <div className="mt-4 flex items-center gap-2 bg-white/10 border border-white/15 rounded-xl px-4 py-2.5">
