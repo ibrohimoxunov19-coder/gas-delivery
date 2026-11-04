@@ -8,6 +8,7 @@ import Receipt from '@/components/Receipt';
 import ProfileButton from '@/components/ProfileButton';
 import FinanceTab from '@/components/FinanceTab';
 import { useRouter } from 'next/navigation';
+import { notifyOutForDelivery, notifyConfirmed } from '@/lib/sms';
 import { toast } from '@/components/Toast';
 import {
   BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid, Cell,
@@ -240,6 +241,11 @@ export default function AdminDashboard() {
       .update(updateData)
       .eq('id', orderId);
     if (!error) {
+      if (status === 'confirmed' || status === 'on_the_way') {
+        const ord = orders.find((o) => o.id === orderId);
+        if (status === 'confirmed') notifyConfirmed(ord?.profiles?.phone, orderId);
+        else notifyOutForDelivery(ord?.profiles?.phone, orderId);
+      }
       toast('Holat yangilandi', 'success');
       loadAll();
     }

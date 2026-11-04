@@ -6,7 +6,7 @@ import { REGIONS } from '@/lib/regions';
 import { Order, OrderStatus, Profile } from '@/types';
 import OrderCard from '@/components/OrderCard';
 import Map from '@/components/Map';
-import { notifyOutForDelivery } from '@/lib/sms';
+import { notifyOutForDelivery, notifyConfirmed } from '@/lib/sms';
 import Receipt from '@/components/Receipt';
 import { toast } from '@/components/Toast';
 import { requestNotifPermission, hasNotifPermission, sendPush } from '@/lib/notifications';
@@ -268,11 +268,12 @@ export default function DriverDashboard() {
       .from('orders')
       .update(updateData)
       .eq('id', orderId);
-        if (!error) {
-      // 📱 "Yo'lga chiqdi" -> mijozga SMS
-      if (status === 'on_the_way') {
+    if (!error) {
+      // 📱 SMS: tasdiqlash va yo'lga chiqish
+      if (status === 'confirmed' || status === 'on_the_way') {
         const ord = orders.find((o) => o.id === orderId);
-        notifyOutForDelivery(ord?.profiles?.phone, orderId);
+        if (status === 'confirmed') notifyConfirmed(ord?.profiles?.phone, orderId);
+        else notifyOutForDelivery(ord?.profiles?.phone, orderId);
       }
       if ('speechSynthesis' in window) {
         const t: Record<string, string> = {

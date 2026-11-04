@@ -41,3 +41,9 @@ export async function notifyDayBefore(customerPhone: string | null | undefined, 
   const msg = `GazExpress: Buyurtma #${orderId} ertaga yetkaziladi. Uyda bo'lishingizni so'raymiz.`;
   await sendRaw(customerPhone, msg);
 }
+// Tasdiqlash (confirmed) -> mijozga "ertaga yetkazamiz"
+export async function notifyConfirmed(customerPhone: string | null | undefined, orderId: number) {
+  if (!customerPhone) return;
+  const msg = `GazExpress: Buyurtma #${orderId} tasdiqlandi. Ertaga yetkazib beramiz — uyda bo'ling.`;
+  await sendRaw(customerPhone, msg);
+}
