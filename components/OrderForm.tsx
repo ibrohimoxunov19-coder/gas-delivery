@@ -8,7 +8,7 @@ import { CylinderType, PaymentMethod } from '@/types';
 import Map from './Map';
 import { toast } from './Toast';
 import {
-  ShoppingCart, MapPin, AlertCircle, Home, Wallet, RefreshCw, Clock, Recycle, Crosshair,
+  ShoppingCart, MapPin, AlertCircle, Home, Wallet, RefreshCw, Recycle, Crosshair,
 } from 'lucide-react';
 
 interface OrderFormProps {
@@ -16,16 +16,7 @@ interface OrderFormProps {
   onSuccess?: () => void;
 }
 
-const DELIVERY_SLOTS = [
-  'Bugun 09:00–11:00',
-  'Bugun 11:00–13:00',
-  'Bugun 14:00–16:00',
-  'Bugun 16:00–18:00',
-  'Ertaga 09:00–11:00',
-  'Ertaga 14:00–16:00',
-];
-
-const TRADE_IN_DISCOUNT = 5000; // trade_in_price bo'sh bo'lsa, avtomatik chegirma
+const TRADE_IN_DISCOUNT = 5000;
 
 export default function OrderForm({ customerId, onSuccess }: OrderFormProps) {
   const [cylinderTypes, setCylinderTypes] = useState<CylinderType[]>([]);
@@ -40,7 +31,6 @@ export default function OrderForm({ customerId, onSuccess }: OrderFormProps) {
   const [gpsLoc, setGpsLoc] = useState<[number, number] | null>(null);
   const [notes, setNotes] = useState('');
   const [payment, setPayment] = useState<PaymentMethod>('cash');
-  const [deliveryTime, setDeliveryTime] = useState(DELIVERY_SLOTS[0]);
   const [isTradeIn, setIsTradeIn] = useState(true);
   const [emptyBalloons, setEmptyBalloons] = useState(1);
   const [isRecurring, setIsRecurring] = useState(false);
@@ -60,12 +50,9 @@ export default function OrderForm({ customerId, onSuccess }: OrderFormProps) {
 
   const selectedRegion = REGIONS.find((r) => r.name === region);
   const selectedDistrict = selectedRegion?.districts.find((d) => d.name === district);
-
-  // 🏙️ Shahar / tuman ajratish (optgroup uchun)
   const cityList = selectedRegion?.districts.filter((d) => d.name.includes('shahri')) || [];
   const townList = selectedRegion?.districts.filter((d) => !d.name.includes('shahri')) || [];
 
-  // Xarita faqat GPS yoki tuman/viloyat tanlovida sakraydi; klik/drag'da SILJIMAYDI
   const mapCenter: [number, number] = gpsLoc
     ? gpsLoc
     : selectedDistrict
@@ -80,7 +67,6 @@ export default function OrderForm({ customerId, onSuccess }: OrderFormProps) {
   const stock = selectedCylinder?.stock ?? 0;
   const stockOk = quantity <= stock;
 
-  // 💰 YANGI NARX MODELİ: almashtirish (arzon) + yangi (qimmat) aralashmasi
   const unitNew = selectedCylinder?.price ?? 0;
   const unitTrade = selectedCylinder
     ? (selectedCylinder.trade_in_price ?? (selectedCylinder.price - TRADE_IN_DISCOUNT))
@@ -114,25 +100,21 @@ export default function OrderForm({ customerId, onSuccess }: OrderFormProps) {
     setLongitude(null);
   };
 
-  // Xaritaga klik — manzil qo'yiladi (xarita siljimaydi, chunki gpsLoc null)
   const handleLocationSelect = (lat: number, lng: number) => {
     setLatitude(lat);
     setLongitude(lng);
   };
 
-  // Markerni surish — aniq uyga qo'yish
   const handleMarkerDrag = (lat: number, lng: number) => {
     setLatitude(lat);
     setLongitude(lng);
   };
 
-  // Trade-in belgilanganda bo'sh ballonlar = miqdorga teng (qulaylik), bekor qilsa 0
   const handleTradeInToggle = (checked: boolean) => {
     setIsTradeIn(checked);
     setEmptyBalloons(checked ? quantity : 0);
   };
 
-  // 📍 GPS — ayni turgan joyga nuqta tushadi
   const locateMe = () => {
     if (!('geolocation' in navigator)) {
       toast("Qurilmangiz geolokatsiyani qo'llab-quvvatlamaydi", 'error');
@@ -153,7 +135,6 @@ export default function OrderForm({ customerId, onSuccess }: OrderFormProps) {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-
     if (!locationSelected) {
       toast('Iltimos, avval xaritada manzilni belgilang!', 'error');
       return;
@@ -162,12 +143,9 @@ export default function OrderForm({ customerId, onSuccess }: OrderFormProps) {
       toast(`Afsuski, omborda faqat ${stock} ta qoldi!`, 'error');
       return;
     }
-
     setLoading(true);
-
     try {
       const receiptNo = `RX-${Date.now().toString().slice(-6)}`;
-
       const { error } = await supabase.from('orders').insert({
         customer_id: customerId,
         cylinder_type_id: selectedType,
@@ -183,25 +161,18 @@ export default function OrderForm({ customerId, onSuccess }: OrderFormProps) {
         payment_method: payment,
         is_trade_in: isTradeIn,
         empty_balloons: isTradeIn ? tradeInCount : 0,
-        delivery_time: deliveryTime,
         receipt_no: receiptNo,
         is_recurring: isRecurring,
         status: 'new',
       });
-
       if (error) throw error;
-
-      // Ombor qoldig'ini kamaytirish (atomik)
       await supabase.rpc('decrement_stock', { p_type_id: selectedType, p_qty: quantity });
-
       if ('speechSynthesis' in window) {
-        const utterance = new SpeechSynthesisUtterance('Buyurtma muvaffaqiyatli qabul qilindi');
-        utterance.lang = 'uz-UZ';
-        speechSynthesis.speak(utterance);
+        const u = new SpeechSynthesisUtterance('Buyurtma muvaffaqiyatli qabul qilindi');
+        u.lang = 'uz-UZ';
+        speechSynthesis.speak(u);
       }
-
       toast(`Buyurtma qabul qilindi! Kvitansiya: ${receiptNo}`, 'success');
-
       setAddress('');
       setRegion('');
       setDistrict('');
@@ -211,11 +182,10 @@ export default function OrderForm({ customerId, onSuccess }: OrderFormProps) {
       setGpsLoc(null);
       setNotes('');
       setQuantity(1);
-      setIsTradeIn(false);
-      setEmptyBalloons(0);
+      setIsTradeIn(true);
+      setEmptyBalloons(1);
       setIsRecurring(false);
       setPayment('cash');
-
       loadCylinderTypes();
       if (onSuccess) onSuccess();
     } catch (error) {
@@ -237,7 +207,6 @@ export default function OrderForm({ customerId, onSuccess }: OrderFormProps) {
         Yangi buyurtma
       </h3>
 
-      {/* Hudud */}
       <div className="grid grid-cols-2 gap-3">
         <div>
           <label className="block text-sm font-medium mb-1 text-gray-700">Viloyat</label>
@@ -281,7 +250,6 @@ export default function OrderForm({ customerId, onSuccess }: OrderFormProps) {
         </div>
       </div>
 
-      {/* MFY — datalist MFY_ZONES dan */}
       <div>
         <label className="block text-sm font-medium mb-1 text-gray-700 flex items-center gap-1">
           <Home className="w-4 h-4 text-blue-600" /> MFY (mahalla) nomi
@@ -300,7 +268,6 @@ export default function OrderForm({ customerId, onSuccess }: OrderFormProps) {
         </datalist>
       </div>
 
-      {/* Ballon turi + ombor (yangi/almashtirish narxi bilan) */}
       <div>
         <label className="block text-sm font-medium mb-1 text-gray-700">Ballon turi</label>
         <select
@@ -337,23 +304,6 @@ export default function OrderForm({ customerId, onSuccess }: OrderFormProps) {
         />
       </div>
 
-      {/* Yetkazish vaqti (slotlar) */}
-      <div>
-        <label className="block text-sm font-medium mb-1 text-gray-700 flex items-center gap-1">
-          <Clock className="w-4 h-4 text-blue-600" /> Yetkazib berish vaqti
-        </label>
-        <select
-          value={deliveryTime}
-          onChange={(e) => setDeliveryTime(e.target.value)}
-          className="w-full px-4 py-2.5 border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none transition"
-        >
-          {DELIVERY_SLOTS.map((slot) => (
-            <option key={slot} value={slot}>{slot}</option>
-          ))}
-        </select>
-      </div>
-
-      {/* To'lov metodi */}
       <div>
         <label className="block text-sm font-medium mb-1 text-gray-700 flex items-center gap-1">
           <Wallet className="w-4 h-4 text-blue-600" /> To'lov usuli
@@ -380,7 +330,6 @@ export default function OrderForm({ customerId, onSuccess }: OrderFormProps) {
         </div>
       </div>
 
-      {/* 💰 Trade-in — belgilanganda narx JONLI o'zgaradi */}
       <div className="border border-gray-200 rounded-xl p-4 space-y-3">
         <label className="flex items-center gap-2 cursor-pointer">
           <input
@@ -413,7 +362,6 @@ export default function OrderForm({ customerId, onSuccess }: OrderFormProps) {
         )}
       </div>
 
-      {/* Takroriy buyurtma */}
       <label className="flex items-center gap-2 cursor-pointer">
         <input
           type="checkbox"
@@ -422,7 +370,7 @@ export default function OrderForm({ customerId, onSuccess }: OrderFormProps) {
           className="w-4 h-4 accent-blue-600"
         />
         <span className="text-sm font-medium text-gray-700 flex items-center gap-1">
-          <RefreshCw className="w-4 h-4 text-purple-600" /> Oyiga bir marta takroriy buyurtma sifatida belgilash
+          <RefreshCw className="w-4 h-4 text-purple-600" /> Oyiga bir marta takroriy buyurtma
         </span>
       </label>
 
@@ -438,7 +386,6 @@ export default function OrderForm({ customerId, onSuccess }: OrderFormProps) {
         />
       </div>
 
-      {/* Xarita + 📍 geolocation + drag */}
       <div>
         <div className="flex items-center justify-between mb-1">
           <label className="block text-sm font-medium flex items-center gap-2 text-gray-700">
@@ -462,7 +409,7 @@ export default function OrderForm({ customerId, onSuccess }: OrderFormProps) {
         />
         {locationSelected ? (
           <p className="text-sm text-green-600 mt-2 font-medium">
-            ✓ Joylashuv tanlandi: {latitude!.toFixed(4)}, {longitude!.toFixed(4)} — <span className="text-gray-500">(nuqtani suring)</span>
+            ✓ Joylashuv: {latitude!.toFixed(4)}, {longitude!.toFixed(4)} — <span className="text-gray-500">(nuqtani suring)</span>
           </p>
         ) : (
           <p className="text-sm text-amber-600 mt-2 font-medium flex items-center gap-1">
@@ -476,12 +423,11 @@ export default function OrderForm({ customerId, onSuccess }: OrderFormProps) {
         <textarea
           value={notes}
           onChange={(e) => setNotes(e.target.value)}
-          className="w-full px-4 py-2.5 border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none transition"
           rows={2}
+          className="w-full px-4 py-2.5 border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none transition"
         />
       </div>
 
-      {/* 💰 JONLI NARX — trade-in o'zgarsa shu yerda ko'rinadi */}
       <div className="bg-gradient-to-r from-blue-50 to-cyan-50 p-4 rounded-xl border border-blue-100 space-y-1">
         {isTradeIn && tradeInCount > 0 ? (
           <>
