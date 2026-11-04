@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { supabase } from '@/lib/supabase';
 import { Order, OrderStatus, Profile, CylinderType } from '@/types';
+import { REGIONS } from '@/lib/regions';
 import OrderCard from '@/components/OrderCard';
 import Receipt from '@/components/Receipt';
 import ProfileButton from '@/components/ProfileButton';
@@ -62,6 +63,7 @@ export default function AdminDashboard() {
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [dateFilter, setDateFilter] = useState<string>('all');
   const [receiptOrder, setReceiptOrder] = useState<Order | null>(null); // 📄 chek
+  const [driversList, setDriversList] = useState<Profile[]>([]); // 🚚 barcha haydovchilar
 
   const router = useRouter();
 
@@ -193,6 +195,28 @@ export default function AdminDashboard() {
       .select('*')
       .order('weight_kg');
     if (stock) setStockItems(stock as CylinderType[]);
+
+    // 🚚 Barcha haydovchilar (tuman tayinlash uchun)
+    const { data: drivers } = await supabase
+      .from('profiles')
+      .select('*')
+      .eq('role', 'driver')
+      .order('full_name');
+    if (drivers) setDriversList(drivers as Profile[]);
+  };
+
+  // 🗺️ Admin haydovchiga tuman tayinlaydi
+  const assignDistrict = async (driverId: string, district: string) => {
+    const { error } = await supabase
+      .from('profiles')
+      .update({ home_district: district || null })
+      .eq('id', driverId);
+    if (!error) {
+      toast('Tuman tayinlandi ✓', 'success');
+      setDriversList((prev) =>
+        prev.map((d) => (d.id === driverId ? { ...d, home_district: district || undefined } : d))
+      );
+    } else toast('Xatolik: ' + error.message, 'error');
   };
 
   const filteredOrders = useMemo(() => {
@@ -583,6 +607,48 @@ export default function AdminDashboard() {
             {/* HAYDOVCHILAR SAMARADORLIGI (BAHO BILAN) */}
             {activeTab === 'drivers' && (
               <div>
+                {/* 🗺️ TUMAN TAYINLASH */}
+                <div className="mb-8">
+                  <h3 className="text-xl font-bold mb-2 flex items-center gap-2">
+                    <MapPin className="w-5 h-5 text-indigo-600" />
+                    Haydovchilarga tuman tayinlash
+                  </h3>
+                  <p className="text-sm text-gray-500 mb-4">
+                    Har bir haydovchi faqat shu tuman buyurtmalarini ko'radi. Bo'sh qoldirsangiz — barcha tumanlarni ko'radi.
+                  </p>
+                  <div className="space-y-2">
+                    {driversList.length === 0 ? (
+                      <p className="text-gray-500 text-sm">Hali haydovchi ro'yxatdan o'tmagan.</p>
+                    ) : (
+                      driversList.map((d) => (
+                        <div
+                          key={d.id}
+                          className="bg-gray-50 p-3 rounded-xl flex flex-col sm:flex-row sm:items-center gap-3"
+                        >
+                          <div className="flex-1 min-w-0">
+                            <p className="font-bold text-gray-800 truncate">{d.full_name}</p>
+                            <p className="text-xs text-gray-500">{d.phone}</p>
+                          </div>
+                          <select
+                            value={d.home_district || ''}
+                            onChange={(e) => assignDistrict(d.id, e.target.value)}
+                            className="px-3 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none text-sm bg-white"
+                          >
+                            <option value="">— Tuman tanlang —</option>
+                            {REGIONS.flatMap((r) =>
+                              r.districts.map((dist) => (
+                                <option key={`${r.name}-${dist.name}`} value={dist.name}>
+                                  {r.name.replace(' viloyati', '')} · {dist.name}
+                                </option>
+                              ))
+                            )}
+                          </select>
+                        </div>
+                      ))
+                    )}
+                  </div>
+                </div>
+
                 <h3 className="text-xl font-bold mb-4 flex items-center gap-2">
                   <Trophy className="w-5 h-5 text-amber-500" />
                   Haydovchilar samaradorligi

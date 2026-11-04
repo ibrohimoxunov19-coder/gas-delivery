@@ -2,16 +2,15 @@
 
 import { useEffect, useRef, useState } from 'react';
 import { supabase } from '@/lib/supabase';
-import { REGIONS } from '@/lib/regions';
 import { Order, OrderStatus, Profile } from '@/types';
 import OrderCard from '@/components/OrderCard';
 import Map from '@/components/Map';
-import { notifyOutForDelivery, notifyConfirmed } from '@/lib/sms';
 import Receipt from '@/components/Receipt';
 import { toast } from '@/components/Toast';
 import { requestNotifPermission, hasNotifPermission, sendPush } from '@/lib/notifications';
 import ProfileButton from '@/components/ProfileButton';
 import { getNavUrl } from '@/lib/navigation';
+import { notifyOutForDelivery, notifyConfirmed } from '@/lib/sms';
 import {
   buildDriverReport,
   exportDriverCSV,
@@ -21,8 +20,8 @@ import {
 import { useRouter } from 'next/navigation';
 import {
   LogOut, Truck, MapPin, Star, Filter, TrendingUp, Package, Calendar,
-  Navigation, Radio, Bell, BellRing, ExternalLink, Home, BarChart3,
-  Route, Wallet, FileText, Download,
+  Navigation, Radio, Bell, BellRing, ExternalLink, BarChart3,
+  Route, Wallet, FileText, Download, AlertTriangle,
 } from 'lucide-react';
 
 interface MfyStat {
@@ -46,9 +45,8 @@ export default function DriverDashboard() {
   const [liveMode, setLiveMode] = useState(false);
   const [notifOn, setNotifOn] = useState(false);
 
-  // 🗺️ Haydovchi xizmat tumani
-  const [homeRegion, setHomeRegion] = useState('');
-  const [homeDistrict, setHomeDistrict] = useState('');
+  // 🗺️ Admin tayinlagan tuman (o'qiladi, o'zgartirilmaydi)
+  const [assignedDistrict, setAssignedDistrict] = useState<string>('');
   const districtRef = useRef<string>('');
 
   // 📊 Hisobot
@@ -128,11 +126,9 @@ export default function DriverDashboard() {
       setMyPos([profile.latitude, profile.longitude]);
     }
 
-    // 🗺️ Saqlangan tumanni tiklash
+    // 🗺️ Admin tayinlagan tumanni o'qish
     if (profile.home_district) {
-      const r = REGIONS.find((rg) => rg.districts.some((d) => d.name === profile.home_district));
-      setHomeRegion(r?.name || '');
-      setHomeDistrict(profile.home_district);
+      setAssignedDistrict(profile.home_district);
       districtRef.current = profile.home_district;
     }
 
@@ -166,44 +162,18 @@ export default function DriverDashboard() {
     );
   };
 
-  // 🗺️ Tuman tanlash — profilga saqlanadi va ro'yxat filtrlanadi
-  const handleHomeRegionChange = (v: string) => {
-    setHomeRegion(v);
-    setHomeDistrict('');
-    districtRef.current = '';
-    saveHomeDistrict('');
-  };
-
-  const handleHomeDistrictChange = (v: string) => {
-    setHomeDistrict(v);
-    districtRef.current = v;
-    saveHomeDistrict(v);
-    setSelectedMfy('');
-    loadOrders();
-    loadMfyStats();
-  };
-
-  const saveHomeDistrict = async (d: string) => {
-    if (!user) return;
-    await supabase
-      .from('profiles')
-      .update({ home_district: d || null })
-      .eq('id', user.id);
-  };
-
   const loadOrders = async () => {
     let q = supabase
       .from('orders')
       .select(`*, profiles:customer_id (full_name, phone), cylinder_types:cylinder_type_id (name)`)
       .in('status', ['new', 'confirmed', 'on_the_way']);
     if (districtRef.current) {
-      q = q.eq('district', districtRef.current); // 🗺️ faqat shu tuman
+      q = q.eq('district', districtRef.current);
     }
     const { data, error } = await q.order('created_at', { ascending: false });
     if (!error && data) setOrders(data as Order[]);
   };
 
-  // 📊 Mening yetkazilganlarim — TO'LIQ join (chek uchun)
   const loadMyReport = async () => {
     if (!user) return;
     const { data, error } = await supabase
@@ -263,7 +233,7 @@ export default function DriverDashboard() {
       updated_at: new Date().toISOString(),
     };
     if (status === 'confirmed') updateData.driver_id = user!.id;
-    if (status === 'delivered') updateData.delivered_at = new Date().toISOString(); // ✅ aniq vaqt
+    if (status === 'delivered') updateData.delivered_at = new Date().toISOString();
     const { error } = await supabase
       .from('orders')
       .update(updateData)
@@ -330,13 +300,6 @@ export default function DriverDashboard() {
     });
   }
   const topMfy = mfyStats[0];
-
-  // 🏙️ Shahar / tuman ajratish (optgroup uchun)
-  const homeDistricts = homeRegion
-    ? REGIONS.find((r) => r.name === homeRegion)?.districts || []
-    : [];
-  const homeCities = homeDistricts.filter((d) => d.name.includes('shahri'));
-  const homeTowns = homeDistricts.filter((d) => !d.name.includes('shahri'));
   const maxMonth = report && report.byMonth.length
     ? Math.max(...report.byMonth.map((m) => m.revenue), 1)
     : 1;
@@ -364,7 +327,6 @@ export default function DriverDashboard() {
                 <span className="hidden sm:inline">Yoqilgan</span>
               </span>
             )}
-            {/* 👤 Profil ikonkasi (eski <details> o'rniga) */}
             {user && <ProfileButton profile={user} onUpdated={checkUser} />}
             <button
               onClick={handleLogout}
@@ -378,56 +340,28 @@ export default function DriverDashboard() {
       </nav>
 
       <div className="container mx-auto px-4 py-8">
-        {/* 🗺️ MENING HUDUDIM */}
-        <div className="bg-gradient-to-r from-indigo-50 to-blue-50 border border-indigo-200 p-5 rounded-2xl mb-6">
-          <p className="font-bold text-gray-800 mb-3 flex items-center gap-2">
-            <Home className="w-5 h-5 text-indigo-600" />
-            Mening xizmat hududim
-          </p>
-          <div className="grid grid-cols-2 gap-3">
-            <select
-              value={homeRegion}
-              onChange={(e) => handleHomeRegionChange(e.target.value)}
-              className="px-4 py-2.5 border border-indigo-200 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none bg-white"
-            >
-              <option value="">Viloyat...</option>
-              {REGIONS.map((r) => (
-                <option key={r.name} value={r.name}>{r.name}</option>
-              ))}
-            </select>
-            <select
-              value={homeDistrict}
-              onChange={(e) => handleHomeDistrictChange(e.target.value)}
-              disabled={!homeRegion}
-              className="px-4 py-2.5 border border-indigo-200 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none bg-white disabled:bg-gray-100"
-            >
-              <option value="">Tanlang...</option>
-              {homeCities.length > 0 && (
-                <optgroup label="🏙️ Shaharlar">
-                  {homeCities.map((d) => (
-                    <option key={d.name} value={d.name}>{d.name}</option>
-                  ))}
-                </optgroup>
-              )}
-              {homeTowns.length > 0 && (
-                <optgroup label="🏘️ Tumanlar">
-                  {homeTowns.map((d) => (
-                    <option key={d.name} value={d.name}>{d.name}</option>
-                  ))}
-                </optgroup>
-              )}
-            </select>
+        {/* 🗺️ XIZMAT HUDUDI (faqat ko'rsatiladi, tanlanmaydi) */}
+        {assignedDistrict ? (
+          <div className="bg-gradient-to-r from-indigo-50 to-blue-50 border border-indigo-200 p-5 rounded-2xl mb-6 flex items-center gap-3">
+            <MapPin className="w-6 h-6 text-indigo-600 shrink-0" />
+            <div>
+              <p className="font-bold text-gray-800">Mening xizmat hududim</p>
+              <p className="text-sm text-indigo-700">
+                Faqat <b>{assignedDistrict}</b> buyurtmalari ko'rsatilmoqda (admin tomonidan tayinlangan)
+              </p>
+            </div>
           </div>
-          {homeDistrict ? (
-            <p className="text-sm text-indigo-700 mt-3 font-medium">
-              ✓ Faqat <b>{homeDistrict}</b> buyurtmalari ko'rsatilmoqda
-            </p>
-          ) : (
-            <p className="text-sm text-amber-700 mt-3 font-medium flex items-center gap-1">
-              ⚠ Hududingizni tanlang — shunda faqat sizning tumani/shahringiz buyurtmalari chiqadi
-            </p>
-          )}
-        </div>
+        ) : (
+          <div className="bg-amber-50 border border-amber-200 p-5 rounded-2xl mb-6 flex items-center gap-3">
+            <AlertTriangle className="w-6 h-6 text-amber-600 shrink-0" />
+            <div>
+              <p className="font-bold text-amber-800">Sizga hali tuman tayinlanmagan</p>
+              <p className="text-sm text-amber-700">
+                Hozircha barcha buyurtmalar ko'rsatilmoqda. Admin panelidan tumaningizni so'rang.
+              </p>
+            </div>
+          </div>
+        )}
 
         {/* 📊 HISOBOTIM */}
         <div className="bg-white p-6 rounded-2xl shadow-sm border mb-6">
@@ -689,8 +623,8 @@ export default function DriverDashboard() {
         <h2 className="text-2xl font-bold mb-4 flex items-center gap-2">
           <TrendingUp className="w-6 h-6" />
           Faol buyurtmalar
-          {homeDistrict && (
-            <span className="text-sm font-normal text-gray-500">({homeDistrict})</span>
+          {assignedDistrict && (
+            <span className="text-sm font-normal text-gray-500">({assignedDistrict})</span>
           )}
           {selectedMfy && (
             <span className="text-sm font-normal text-gray-500">· {selectedMfy}</span>
@@ -699,8 +633,8 @@ export default function DriverDashboard() {
         <div className="grid md:grid-cols-2 gap-4">
           {filteredOrders.length === 0 ? (
             <p className="text-gray-500 text-center py-12 col-span-2 bg-white rounded-2xl">
-              {homeDistrict
-                ? `${homeDistrict} bo'yicha faol buyurtmalar yo'q`
+              {assignedDistrict
+                ? `${assignedDistrict} bo'yicha faol buyurtmalar yo'q`
                 : "Hali faol buyurtmalar yo'q"}
             </p>
           ) : (
