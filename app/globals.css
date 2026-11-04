@@ -77,3 +77,38 @@ body {
     width: 100%;
   }
 }
+/* ============================================================
+   DESKTOP RESPONSIVE POLISH (faqat qo'shimcha, JSX tegmaydi)
+   ============================================================ */
+
+/* 1) Container'ni kengaytirish — yonlardagi bo'shliqni kamaytiradi */
+@media (min-width: 1280px) {
+  .container {
+    max-width: 1200px;
+  }
+}
+@media (min-width: 1536px) {
+  .container {
+    max-width: 1440px;
+  }
+}
+@media (min-width: 1920px) {
+  .container {
+    max-width: 1680px;
+  }
+}
+
+/* 2) Desktop'da matn biroz kattaroq (kichik ko'rinishini oldini oladi) */
+@media (min-width: 1024px) {
+  html {
+    font-size: 17px;
+  }
+}
+
+/* 3) Katta ekranlarda kartalar/oralar kengroq (zich ko'rinmasligi uchun) */
+@media (min-width: 1536px) {
+  .container {
+    padding-left: 2rem;
+    padding-right: 2rem;
+  }
+}
