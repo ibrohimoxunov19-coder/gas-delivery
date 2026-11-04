@@ -167,7 +167,7 @@ export default function DriverDashboard() {
     let q = supabase
       .from('orders')
       .select(`*, profiles:customer_id (full_name, phone), cylinder_types:cylinder_type_id (name)`)
-      .in('status', ['new', 'confirmed', 'on_the_way']);
+      .in('status', ['new', 'confirmed', 'on_the_way', 'delivered', 'completed']);
     if (districtRef.current) {
       q = q.eq('district', districtRef.current);
     }
@@ -193,7 +193,7 @@ export default function DriverDashboard() {
     let q = supabase
       .from('orders')
       .select('mfy, total_price, status')
-      .in('status', ['new', 'confirmed']);
+      .in('status', ['new', 'confirmed', 'on_the_way', 'delivered', 'completed']);
     if (districtRef.current) q = q.eq('district', districtRef.current);
     const { data, error } = await q;
     if (!error && data) {
@@ -236,26 +236,53 @@ export default function DriverDashboard() {
 
   const clearSelection = () => setSelectedIds([]);
 
-  const bulkOnTheWay = async () => {
+  // 🔁 Holatga qarab keyingi bosqich (zanjir: new→confirmed→on_the_way→delivered)
+  const nextOf = (s: OrderStatus): OrderStatus | null => {
+    const map: Record<OrderStatus, OrderStatus | null> = {
+      new: 'confirmed',
+      confirmed: 'on_the_way',
+      on_the_way: 'delivered',
+      delivered: null,
+      completed: null,
+      cancelled: null,
+    };
+    return map[s];
+  };
+
+  const bulkAdvance = async () => {
     if (selectedIds.length === 0) return;
     const ids = [...selectedIds];
+    let moved = 0;
     for (const id of ids) {
-      await supabase
-        .from('orders')
-        .update({ status: 'on_the_way', updated_at: new Date().toISOString() })
-        .eq('id', id);
       const ord = orders.find((o) => o.id === id);
-      notifyOutForDelivery(ord?.profiles?.phone, id); // 📱 SMS
+      if (!ord) continue;
+      const next = nextOf(ord.status);
+      if (!next) continue; // yakunlangan — o'tkazib yuboramiz
+      const updateData: Record<string, unknown> = {
+        status: next,
+        updated_at: new Date().toISOString(),
+      };
+      if (next === 'confirmed') updateData.driver_id = user!.id;
+      if (next === 'delivered') updateData.delivered_at = new Date().toISOString();
+      const { error } = await supabase
+        .from('orders')
+        .update(updateData)
+        .eq('id', id);
+      if (error) continue;
+      moved++;
+      // 📱 SMS: holatga mos
+      if (next === 'confirmed') notifyConfirmed(ord.profiles?.phone, id);
+      else if (next === 'on_the_way') notifyOutForDelivery(ord.profiles?.phone, id);
     }
-    toast(`${ids.length} ta buyurtma yo'lga chiqdi 🚚`, 'success');
+    toast(`${moved} ta buyurtma keyingi bosqichga o'tdi ⏭️`, 'success');
     setSelectedIds([]);
     loadOrders();
     loadMfyStats();
+    if (user) {
+      loadDriverStats(user.id);
+      loadMyReport();
+    }
   };
-
-
-
-
   const handleUpdateStatus = async (orderId: number, status: OrderStatus) => {
     const updateData: Record<string, unknown> = {
       status,
@@ -329,6 +356,21 @@ export default function DriverDashboard() {
     });
   }
   const topMfy = mfyStats[0];
+    // 🏷️ Tanlanganlarning holatiga qarab tugma matni
+  const selectedOrders = orders.filter((o) => selectedIds.includes(o.id));
+  const nexts = selectedOrders
+    .map((o) => nextOf(o.status))
+    .filter(Boolean) as OrderStatus[];
+  const uniqueNexts = Array.from(new Set(nexts));
+  const nextLabel: Record<string, string> = {
+    confirmed: 'Qabul qilish (tasdiqlash) ✅',
+    on_the_way: "Yo'lga chiqarish 🚚",
+    delivered: 'Yetkazdim & to\'lov oldim 💰',
+  };
+  const bulkLabel =
+    uniqueNexts.length === 1
+      ? nextLabel[uniqueNexts[0]]
+      : '⏭️ Keyingi bosqichga o\'tkazish';
   const maxMonth = report && report.byMonth.length
     ? Math.max(...report.byMonth.map((m) => m.revenue), 1)
     : 1;
@@ -661,10 +703,10 @@ export default function DriverDashboard() {
                 Bekor
               </button>
               <button
-                onClick={bulkOnTheWay}
+                onClick={bulkAdvance}
                 className="bg-white text-blue-700 hover:bg-blue-50 px-4 py-1.5 rounded-lg text-sm font-bold transition"
               >
-                Yo'lga chiqarish 🚚
+                {bulkLabel}
               </button>
             </div>
           </div>
@@ -673,7 +715,7 @@ export default function DriverDashboard() {
 
         <h2 className="text-2xl font-bold mb-4 flex items-center gap-2">
           <TrendingUp className="w-6 h-6" />
-          Faol buyurtmalar
+          Buyurtmalar
           {assignedDistrict && (
             <span className="text-sm font-normal text-gray-500">({assignedDistrict})</span>
           )}
