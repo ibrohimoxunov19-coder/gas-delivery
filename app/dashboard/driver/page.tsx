@@ -35,6 +35,7 @@ export default function DriverDashboard() {
   const [orders, setOrders] = useState<Order[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedMfy, setSelectedMfy] = useState<string>('');
+  const [selectedIds, setSelectedIds] = useState<number[]>([]); // ✅ ko'p tanlash
   const [mfyStats, setMfyStats] = useState<MfyStat[]>([]);
   const [driverStats, setDriverStats] = useState({
     totalDelivered: 0,
@@ -226,6 +227,34 @@ export default function DriverDashboard() {
       });
     }
   };
+  // ✅ Ko'p buyurtmani bir zumda tanlash va yo'lga chiqarish
+  const toggleSelect = (id: number) => {
+    setSelectedIds((prev) =>
+      prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]
+    );
+  };
+
+  const clearSelection = () => setSelectedIds([]);
+
+  const bulkOnTheWay = async () => {
+    if (selectedIds.length === 0) return;
+    const ids = [...selectedIds];
+    for (const id of ids) {
+      await supabase
+        .from('orders')
+        .update({ status: 'on_the_way', updated_at: new Date().toISOString() })
+        .eq('id', id);
+      const ord = orders.find((o) => o.id === id);
+      notifyOutForDelivery(ord?.profiles?.phone, id); // 📱 SMS
+    }
+    toast(`${ids.length} ta buyurtma yo'lga chiqdi 🚚`, 'success');
+    setSelectedIds([]);
+    loadOrders();
+    loadMfyStats();
+  };
+
+
+
 
   const handleUpdateStatus = async (orderId: number, status: OrderStatus) => {
     const updateData: Record<string, unknown> = {
@@ -620,6 +649,28 @@ export default function DriverDashboard() {
           </div>
         )}
 
+                {/* ✅ Tanlanganlar paneli (faqir biror narsa tanlansa ko'rinadi) */}
+        {selectedIds.length > 0 && (
+          <div className="sticky top-16 z-10 bg-blue-600 text-white px-4 py-3 rounded-xl mb-4 flex items-center justify-between shadow-lg">
+            <span className="font-semibold">{selectedIds.length} ta tanlandi</span>
+            <div className="flex gap-2">
+              <button
+                onClick={clearSelection}
+                className="bg-white/20 hover:bg-white/30 px-3 py-1.5 rounded-lg text-sm font-semibold transition"
+              >
+                Bekor
+              </button>
+              <button
+                onClick={bulkOnTheWay}
+                className="bg-white text-blue-700 hover:bg-blue-50 px-4 py-1.5 rounded-lg text-sm font-bold transition"
+              >
+                Yo'lga chiqarish 🚚
+              </button>
+            </div>
+          </div>
+        )}
+
+
         <h2 className="text-2xl font-bold mb-4 flex items-center gap-2">
           <TrendingUp className="w-6 h-6" />
           Faol buyurtmalar
@@ -640,6 +691,17 @@ export default function DriverDashboard() {
           ) : (
             filteredOrders.map((order) => (
               <div key={order.id}>
+                <label className="flex items-center gap-2 mb-2 cursor-pointer select-none">
+                  <input
+                    type="checkbox"
+                    checked={selectedIds.includes(order.id)}
+                    onChange={() => toggleSelect(order.id)}
+                    className="w-5 h-5 accent-blue-600"
+                  />
+                  <span className="text-sm font-medium text-gray-700">
+                    Buyurtma #{order.id} ni tanlash
+                  </span>
+                </label>
                 <OrderCard
                   order={order}
                   showActions={true}
