@@ -167,8 +167,7 @@ export default function DriverDashboard() {
     let q = supabase
       .from('orders')
       .select(`*, profiles:customer_id (full_name, phone), cylinder_types:cylinder_type_id (name)`)
-      .in('status', ['new', 'confirmed', 'on_the_way', 'delivered', 'completed']);
-    if (districtRef.current) {
+      .in('status', ['new', 'accepted', 'confirmed', 'on_the_way', 'delivered', 'completed']);    if (districtRef.current) {
       q = q.eq('district', districtRef.current);
     }
     const { data, error } = await q.order('created_at', { ascending: false });
@@ -193,7 +192,7 @@ export default function DriverDashboard() {
     let q = supabase
       .from('orders')
       .select('mfy, total_price, status')
-      .in('status', ['new', 'confirmed', 'on_the_way', 'delivered', 'completed']);
+      .in('status', ['new', 'accepted', 'confirmed', 'on_the_way', 'delivered', 'completed']);
     if (districtRef.current) q = q.eq('district', districtRef.current);
     const { data, error } = await q;
     if (!error && data) {
@@ -239,7 +238,8 @@ export default function DriverDashboard() {
   // 🔁 Holatga qarab keyingi bosqich (zanjir: new→confirmed→on_the_way→delivered)
   const nextOf = (s: OrderStatus): OrderStatus | null => {
     const map: Record<OrderStatus, OrderStatus | null> = {
-      new: 'confirmed',
+      new: 'accepted',
+      accepted: 'confirmed',
       confirmed: 'on_the_way',
       on_the_way: 'delivered',
       delivered: null,
@@ -270,7 +270,7 @@ export default function DriverDashboard() {
         .eq('id', id);
       if (error) continue;
       moved++;
-      // 📱 SMS: holatga mos
+      // 📱 SMS: tasdiqlash va yo'lga chiqishda (qabulda SMS yo'q)
       if (next === 'confirmed') notifyConfirmed(ord.profiles?.phone, id);
       else if (next === 'on_the_way') notifyOutForDelivery(ord.profiles?.phone, id);
     }
@@ -303,6 +303,7 @@ export default function DriverDashboard() {
       }
       if ('speechSynthesis' in window) {
         const t: Record<string, string> = {
+          accepted: 'Buyurtma qabul qilindi',
           confirmed: 'Buyurtma tasdiqlandi',
           on_the_way: "Buyurtma yo'lda",
           delivered: 'Buyurtma yetkazildi',
@@ -363,7 +364,8 @@ export default function DriverDashboard() {
     .filter(Boolean) as OrderStatus[];
   const uniqueNexts = Array.from(new Set(nexts));
   const nextLabel: Record<string, string> = {
-    confirmed: 'Qabul qilish (tasdiqlash) ✅',
+    accepted: 'Qabul qilish ✅',
+    confirmed: 'Tasdiqlash ✔️',
     on_the_way: "Yo'lga chiqarish 🚚",
     delivered: 'Yetkazdim & to\'lov oldim 💰',
   };

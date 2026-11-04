@@ -19,6 +19,7 @@ import {
 import { toast } from '@/components/Toast';
 
 const statusPushText: Record<string, string> = {
+  accepted: 'Buyurtmangiz qabul qilindi 📥',
   confirmed: 'Buyurtmangiz tasdiqlandi ✅',
   on_the_way: "Haydovchi yo'lga chiqdi 🚚",
   delivered: 'Buyurtmangiz yetkazildi — tasdiqlang ✅',
@@ -171,7 +172,7 @@ export default function CustomerDashboard() {
   }
 
   // ✅ TUZATILGAN FILTR: yetkazilgan (delivered) ham TARIXGA o'tadi
-  const activeOrders = orders.filter((o) => ['new', 'confirmed', 'on_the_way'].includes(o.status));
+  const activeOrders = orders.filter((o) => ['new', 'accepted', 'confirmed', 'on_the_way'].includes(o.status));
   const historyOrders = orders.filter((o) => ['delivered', 'completed', 'cancelled'].includes(o.status));
   const displayOrders = activeTab === 'active' ? activeOrders : historyOrders;
 

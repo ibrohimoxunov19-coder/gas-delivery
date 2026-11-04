@@ -24,7 +24,7 @@ export interface CylinderType {
   stock: number;
 }
 
-export type OrderStatus = 'new' | 'confirmed' | 'on_the_way' | 'delivered' | 'completed' | 'cancelled';
+export type OrderStatus = 'new' | 'accepted' | 'confirmed' | 'on_the_way' | 'delivered' | 'completed' | 'cancelled';
 export type PaymentMethod = 'cash' | 'payme' | 'click';
 
 export interface Order {

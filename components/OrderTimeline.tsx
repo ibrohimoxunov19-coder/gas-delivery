@@ -1,17 +1,23 @@
 'use client';
 
 import { Order, OrderStatus } from '@/types';
-import { CheckCircle2, Circle, Clock, Truck, Package, XCircle } from 'lucide-react';
+import {
+  CheckCircle2, Circle, Clock, Truck, Package, XCircle,
+  ClipboardCheck, CircleCheckBig,
+} from 'lucide-react';
 
 interface Props {
   order: Order;
 }
 
+// 🔁 4-bosqich zanjir: new → accepted → confirmed → on_the_way → delivered → completed
 const STEPS: { key: OrderStatus; label: string; icon: any }[] = [
-  { key: 'new', label: 'Qabul qilindi', icon: Package },
+  { key: 'new', label: 'Buyurtma berildi', icon: Clock },
+  { key: 'accepted', label: 'Qabul qilindi', icon: ClipboardCheck },
   { key: 'confirmed', label: 'Tasdiqlangan', icon: CheckCircle2 },
   { key: 'on_the_way', label: "Yo'lda", icon: Truck },
-  { key: 'delivered', label: 'Yetkazildi', icon: Clock },
+  { key: 'delivered', label: 'Yetkazildi', icon: Package },
+  { key: 'completed', label: 'Yakunlandi (chek tayyor)', icon: CircleCheckBig },
 ];
 
 export default function OrderTimeline({ order }: Props) {

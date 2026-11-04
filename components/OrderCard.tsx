@@ -1,9 +1,8 @@
 'use client';
 
 import { Order, OrderStatus } from '@/types';
-import {
-  Package, MapPin, Clock, CheckCircle, XCircle, Truck, Home, CircleCheckBig,
-} from 'lucide-react';
+import { Package, MapPin, Clock, CheckCircle, XCircle, Truck, Home, CircleCheckBig, ClipboardCheck } 
+from 'lucide-react';
 
 interface OrderCardProps {
   order: Order;
@@ -13,6 +12,7 @@ interface OrderCardProps {
 
 const statusLabels: Record<OrderStatus, string> = {
   new: 'Yangi',
+  accepted: 'Qabul qilindi',
   confirmed: 'Tasdiqlangan',
   on_the_way: "Yo'lda",
   delivered: 'Yetkazildi',
@@ -22,6 +22,7 @@ const statusLabels: Record<OrderStatus, string> = {
 
 const statusColors: Record<OrderStatus, string> = {
   new: 'bg-yellow-100 text-yellow-800',
+  accepted: 'bg-indigo-100 text-indigo-800',
   confirmed: 'bg-blue-100 text-blue-800',
   on_the_way: 'bg-purple-100 text-purple-800',
   delivered: 'bg-green-100 text-green-800',
@@ -31,6 +32,7 @@ const statusColors: Record<OrderStatus, string> = {
 
 const statusIcons: Record<OrderStatus, React.ReactNode> = {
   new: <Clock className="w-5 h-5" />,
+  accepted: <ClipboardCheck className="w-5 h-5" />,
   confirmed: <CheckCircle className="w-5 h-5" />,
   on_the_way: <Truck className="w-5 h-5" />,
   delivered: <Package className="w-5 h-5" />,
@@ -46,7 +48,8 @@ export default function OrderCard({
   // Haydovchi/admin uchun zanjir: delivered — uning yakuni (to'lov oldi).
   // completed — mijozning ishi, shuning uchun haydovchi tugmasida chiqmaydi.
   const nextStatus: Record<OrderStatus, OrderStatus | null> = {
-    new: 'confirmed',
+    new: 'accepted',
+    accepted: 'confirmed',
     confirmed: 'on_the_way',
     on_the_way: 'delivered',
     delivered: null,
@@ -54,10 +57,13 @@ export default function OrderCard({
     cancelled: null,
   };
 
-  // 💰 3-band: haydovchi yakuniy tugmasi — "to'lov oldi" ma'nosida
+  // 💰 4-bosqich: har holatga mos tugma matni
   const actionLabel = (status: OrderStatus): string => {
     const next = nextStatus[status];
     if (!next) return '';
+    if (next === 'accepted') return 'Qabul qilish ✅';
+    if (next === 'confirmed') return 'Tasdiqlash ✔️';
+    if (next === 'on_the_way') return "Yo'lga chiqarish 🚚";
     if (next === 'delivered') return "Yetkazdim & to'lov oldim 💰";
     return `${statusLabels[next]} deb belgilash`;
   };

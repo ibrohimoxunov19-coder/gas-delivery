@@ -40,6 +40,7 @@ interface DriverPerf {
 
 const statusLabels: Record<OrderStatus, string> = {
   new: 'Yangi',
+  accepted: 'Qabul qilindi',
   confirmed: 'Tasdiqlangan',
   on_the_way: "Yo'lda",
   delivered: 'Yetkazildi',
