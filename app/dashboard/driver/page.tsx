@@ -70,7 +70,8 @@ export default function DriverDashboard() {
         { event: 'INSERT', schema: 'public', table: 'orders' },
         (payload) => {
           const n = payload.new as any;
-          if (n.status === 'new' && (!districtRef.current || n.district === districtRef.current)) {
+          // 🔒 Faqat o'z tumanidagi yangi buyurtma uchun push (tumanisiz → push yo'q)
+          if (n.status === 'new' && districtRef.current && n.district === districtRef.current) {
             sendPush('GazExpress — Yangi buyurtma', `#${n.id} · ${n.mfy || n.district || 'Yangi'} MFY`);
           }
           loadOrders();
@@ -164,13 +165,17 @@ export default function DriverDashboard() {
   };
 
   const loadOrders = async () => {
-    let q = supabase
+    // 🔒 Tuman biriktirilmagan haydovchi HECH QANDAY buyurtma ko'rmaydi
+    if (!districtRef.current) {
+      setOrders([]);
+      return;
+    }
+    const { data, error } = await supabase
       .from('orders')
       .select(`*, profiles:customer_id (full_name, phone), cylinder_types:cylinder_type_id (name)`)
-      .in('status', ['new', 'accepted', 'confirmed', 'on_the_way', 'delivered', 'completed']);    if (districtRef.current) {
-      q = q.eq('district', districtRef.current);
-    }
-    const { data, error } = await q.order('created_at', { ascending: false });
+      .in('status', ['new', 'accepted', 'confirmed', 'on_the_way', 'delivered', 'completed'])
+      .eq('district', districtRef.current)
+      .order('created_at', { ascending: false });
     if (!error && data) setOrders(data as Order[]);
   };
 
@@ -189,12 +194,16 @@ export default function DriverDashboard() {
   };
 
   const loadMfyStats = async () => {
-    let q = supabase
+    // 🔒 Tuman biriktirilmagan → mahalla statistikasi ham bo'sh
+    if (!districtRef.current) {
+      setMfyStats([]);
+      return;
+    }
+    const { data, error } = await supabase
       .from('orders')
       .select('mfy, total_price, status')
-      .in('status', ['new', 'accepted', 'confirmed', 'on_the_way', 'delivered', 'completed']);
-    if (districtRef.current) q = q.eq('district', districtRef.current);
-    const { data, error } = await q;
+      .in('status', ['new', 'accepted', 'confirmed', 'on_the_way', 'delivered', 'completed'])
+      .eq('district', districtRef.current);
     if (!error && data) {
       const stats: Record<string, MfyStat> = {};
       data.forEach((o: any) => {
@@ -430,7 +439,7 @@ export default function DriverDashboard() {
             <div>
               <p className="font-bold text-amber-800">Sizga hali tuman tayinlanmagan</p>
               <p className="text-sm text-amber-700">
-                Hozircha barcha buyurtmalar ko'rsatilmoqda. Admin panelidan tumaningizni so'rang.
+                Hozircha buyurtmalar ko'rsatilmaydi. Admin tumaningizni biriktirgach, faqat o'z hududingizdagi buyurtmalar chiqadi.
               </p>
             </div>
           </div>
