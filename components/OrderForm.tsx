@@ -9,6 +9,7 @@ import Map from './Map';
 import { toast } from './Toast';
 import {
   ShoppingCart, MapPin, AlertCircle, Home, Wallet, RefreshCw, Recycle, Crosshair,
+  CheckCircle, UserCheck,
 } from 'lucide-react';
 
 interface OrderFormProps {
@@ -17,6 +18,7 @@ interface OrderFormProps {
 }
 
 const TRADE_IN_DISCOUNT = 5000;
+const TIME_SLOTS = ['09:00–11:00', '11:00–13:00', '13:00–15:00', '15:00–17:00', '17:00–19:00'];
 
 export default function OrderForm({ customerId, onSuccess }: OrderFormProps) {
   const [cylinderTypes, setCylinderTypes] = useState<CylinderType[]>([]);
@@ -34,11 +36,15 @@ export default function OrderForm({ customerId, onSuccess }: OrderFormProps) {
   const [isTradeIn, setIsTradeIn] = useState(true);
   const [emptyBalloons, setEmptyBalloons] = useState(1);
   const [isRecurring, setIsRecurring] = useState(false);
+  const [recurringDay, setRecurringDay] = useState('');
+  const [recurringTime, setRecurringTime] = useState('');
+  const [profileAddress, setProfileAddress] = useState('');
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
     loadCylinderTypes();
-  }, []);
+    loadProfileAddress();
+  }, [customerId]);
 
   const loadCylinderTypes = async () => {
     const { data, error } = await supabase.from('cylinder_types').select('*');
@@ -46,6 +52,15 @@ export default function OrderForm({ customerId, onSuccess }: OrderFormProps) {
       setCylinderTypes(data);
       if (data.length > 0) setSelectedType(data[0].id);
     }
+  };
+
+  const loadProfileAddress = async () => {
+    const { data } = await supabase
+      .from('profiles')
+      .select('address')
+      .eq('id', customerId)
+      .single();
+    if (data?.address) setProfileAddress(data.address);
   };
 
   const selectedRegion = REGIONS.find((r) => r.name === region);
@@ -115,6 +130,11 @@ export default function OrderForm({ customerId, onSuccess }: OrderFormProps) {
     setEmptyBalloons(checked ? quantity : 0);
   };
 
+  const applyProfileAddress = () => {
+    setAddress(profileAddress);
+    toast('Profil manzili qo\'llandi ✓', 'success');
+  };
+
   const locateMe = () => {
     if (!('geolocation' in navigator)) {
       toast("Qurilmangiz geolokatsiyani qo'llab-quvvatlamaydi", 'error');
@@ -163,6 +183,8 @@ export default function OrderForm({ customerId, onSuccess }: OrderFormProps) {
         empty_balloons: isTradeIn ? tradeInCount : 0,
         receipt_no: receiptNo,
         is_recurring: isRecurring,
+        recurring_day: isRecurring ? (Number(recurringDay) || null) : null,
+        recurring_time: isRecurring ? (recurringTime || null) : null,
         status: 'new',
       });
       if (error) throw error;
@@ -185,6 +207,8 @@ export default function OrderForm({ customerId, onSuccess }: OrderFormProps) {
       setIsTradeIn(true);
       setEmptyBalloons(1);
       setIsRecurring(false);
+      setRecurringDay('');
+      setRecurringTime('');
       setPayment('cash');
       loadCylinderTypes();
       if (onSuccess) onSuccess();
@@ -268,21 +292,41 @@ export default function OrderForm({ customerId, onSuccess }: OrderFormProps) {
         </datalist>
       </div>
 
+      {/* 🎴 BALLON TURI — 2x2 vizual kartochkalar (select o'rniga) */}
       <div>
-        <label className="block text-sm font-medium mb-1 text-gray-700">Ballon turi</label>
-        <select
-          value={selectedType}
-          onChange={(e) => setSelectedType(Number(e.target.value))}
-          className="w-full px-4 py-2.5 border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none transition"
-        >
-          {cylinderTypes.map((type) => (
-            <option key={type.id} value={type.id}>
-              {type.name} — yangi {type.price.toLocaleString()} / almashtirish {(type.trade_in_price ?? (type.price - TRADE_IN_DISCOUNT)).toLocaleString()} so'm (omborda: {type.stock})
-            </option>
-          ))}
-        </select>
+        <label className="block text-sm font-medium mb-2 text-gray-700">Ballon turi</label>
+        <div className="grid grid-cols-2 gap-3">
+          {cylinderTypes.map((type) => {
+            const isActive = selectedType === type.id;
+            const tStock = type.stock ?? 0;
+            const tNew = type.price;
+            const tTrade = type.trade_in_price ?? (type.price - TRADE_IN_DISCOUNT);
+            return (
+              <button
+                key={type.id}
+                type="button"
+                onClick={() => setSelectedType(type.id)}
+                className={`relative p-3 rounded-xl border-2 text-left transition ${
+                  isActive
+                    ? 'border-blue-600 bg-blue-50 shadow-md'
+                    : 'border-gray-200 bg-white hover:border-blue-300'
+                }`}
+              >
+                {isActive && (
+                  <CheckCircle className="absolute top-2 right-2 w-5 h-5 text-blue-600" />
+                )}
+                <p className="font-bold text-gray-800">{type.name}</p>
+                <p className="text-xs text-gray-500 mt-1">Yangi: {tNew.toLocaleString()} so'm</p>
+                <p className="text-xs text-green-700">Almashtirish: {tTrade.toLocaleString()} so'm</p>
+                <p className={`text-xs mt-1 font-medium ${tStock > 0 ? 'text-gray-500' : 'text-red-600'}`}>
+                  Omborda: {tStock} ta
+                </p>
+              </button>
+            );
+          })}
+        </div>
         {selectedCylinder && (
-          <p className={`text-xs mt-1 font-medium ${stockOk ? 'text-green-600' : 'text-red-600'}`}>
+          <p className={`text-xs mt-2 font-medium ${stockOk ? 'text-green-600' : 'text-red-600'}`}>
             {stockOk ? `✓ Omborda ${stock} ta bor` : `⚠ Faqat ${stock} ta qoldi!`}
           </p>
         )}
@@ -362,6 +406,7 @@ export default function OrderForm({ customerId, onSuccess }: OrderFormProps) {
         )}
       </div>
 
+      {/* 🔁 TAKRORIY BUYURTMA — dinamik maydonlar */}
       <label className="flex items-center gap-2 cursor-pointer">
         <input
           type="checkbox"
@@ -373,9 +418,50 @@ export default function OrderForm({ customerId, onSuccess }: OrderFormProps) {
           <RefreshCw className="w-4 h-4 text-purple-600" /> Oyiga bir marta takroriy buyurtma
         </span>
       </label>
+      {isRecurring && (
+        <div className="bg-purple-50 border border-purple-200 rounded-xl p-4 space-y-3">
+          <p className="text-sm font-semibold text-purple-800">Takroriy buyurtma sozlamalari</p>
+          <div>
+            <label className="block text-xs text-gray-600 mb-1">Har oyning qaysi sanasida yetkazilsin? (1–28)</label>
+            <input
+              type="number"
+              min="1"
+              max="28"
+              value={recurringDay}
+              onChange={(e) => setRecurringDay(e.target.value)}
+              placeholder="Masalan: 15"
+              className="w-full px-4 py-2.5 border border-purple-200 rounded-lg focus:ring-2 focus:ring-purple-500 outline-none transition bg-white"
+            />
+          </div>
+          <div>
+            <label className="block text-xs text-gray-600 mb-1">Qulay vaqt oralig'i</label>
+            <select
+              value={recurringTime}
+              onChange={(e) => setRecurringTime(e.target.value)}
+              className="w-full px-4 py-2.5 border border-purple-200 rounded-lg focus:ring-2 focus:ring-purple-500 outline-none transition bg-white"
+            >
+              <option value="">Tanlang...</option>
+              {TIME_SLOTS.map((t) => (
+                <option key={t} value={t}>{t}</option>
+              ))}
+            </select>
+          </div>
+        </div>
+      )}
 
       <div>
-        <label className="block text-sm font-medium mb-1 text-gray-700">Aniq manzil (ko'cha, uy)</label>
+        <div className="flex items-center justify-between mb-1">
+          <label className="block text-sm font-medium text-gray-700">Aniq manzil (ko'cha, uy)</label>
+          {profileAddress && (
+            <button
+              type="button"
+              onClick={applyProfileAddress}
+              className="text-xs font-semibold text-blue-600 hover:bg-blue-50 px-2.5 py-1.5 rounded-lg transition flex items-center gap-1"
+            >
+              <UserCheck className="w-4 h-4" /> Profilimdagi manzilni qo'llash
+            </button>
+          )}
+        </div>
         <input
           type="text"
           value={address}
