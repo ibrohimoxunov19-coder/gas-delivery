@@ -20,7 +20,7 @@ import {
 import { useRouter } from 'next/navigation';
 import {
   LogOut, Truck, MapPin, Star, Filter, TrendingUp, Package, Calendar,
-  Navigation, Radio, Bell, BellRing, ExternalLink, BarChart3,
+  Navigation, Radio, Bell, BellRing, ExternalLink, BarChart3, WifiOff,
   Route, Wallet, FileText, Download, AlertTriangle,
 } from 'lucide-react';
 
@@ -44,6 +44,7 @@ export default function DriverDashboard() {
   });
   const [myPos, setMyPos] = useState<[number, number] | null>(null);
   const [liveMode, setLiveMode] = useState(false);
+  const [shiftStatus, setShiftStatus] = useState<'free' | 'busy' | 'offline'>('free');
   const [notifOn, setNotifOn] = useState(false);
 
   // 🗺️ Admin tayinlagan tuman (o'qiladi, o'zgartirilmaydi)
@@ -124,6 +125,7 @@ export default function DriverDashboard() {
     }
 
     setUser(profile);
+    setShiftStatus((profile.shift_status as 'free' | 'busy' | 'offline') || 'free');
     if (profile.latitude && profile.longitude) {
       setMyPos([profile.latitude, profile.longitude]);
     }
@@ -159,6 +161,7 @@ export default function DriverDashboard() {
         if (!liveMode) toast('Joylashuv yangilandi 📍', 'success');
       },
       () => {
+        setLiveMode(false);
         if (!liveMode) toast('Joylashuvga ruxsat berilmadi', 'error');
       }
     );
@@ -329,6 +332,14 @@ export default function DriverDashboard() {
       }
     }
   };
+
+    const saveShift = async (s: 'free' | 'busy' | 'offline') => {
+    setShiftStatus(s);
+    if (user) {
+      await supabase.from('profiles').update({ shift_status: s }).eq('id', user.id);
+    }
+  };
+
 
   const handleEnableNotif = async () => {
     const ok = await requestNotifPermission();
@@ -580,6 +591,52 @@ export default function DriverDashboard() {
             </>
           )}
         </div>
+
+        {/* 🕐 SMENA HOLATI */}
+        <div className="bg-white p-5 rounded-2xl shadow-sm border mb-6 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+          <div className="flex items-center gap-3">
+            <div className={`p-3 rounded-xl ${
+              shiftStatus === 'free' ? 'bg-green-100' :
+              shiftStatus === 'busy' ? 'bg-amber-100' : 'bg-gray-100'
+            }`}>
+              {shiftStatus === 'offline'
+                ? <WifiOff className="w-6 h-6 text-gray-500" />
+                : <Navigation className={`w-6 h-6 ${shiftStatus === 'free' ? 'text-green-600' : 'text-amber-600'}`} />}
+            </div>
+            <div>
+              <p className="font-bold text-gray-800">Smena holati</p>
+              <p className="text-sm text-gray-500">
+                {shiftStatus === 'free' ? 'Bo\'sh — buyurtma olaman' :
+                 shiftStatus === 'busy' ? 'Band — hozircha yo\'lga chiqolmayman' :
+                 'Oflayn — tizimdan tashqariman'}
+              </p>
+            </div>
+          </div>
+          <div className="flex gap-2">
+            {([
+              { v: 'free', l: 'Bo\'sh', c: 'green' },
+              { v: 'busy', l: 'Band', c: 'amber' },
+              { v: 'offline', l: 'Oflayn', c: 'gray' },
+            ] as const).map((o) => (
+              <button
+                key={o.v}
+                onClick={() => saveShift(o.v)}
+                className={`px-4 py-2 rounded-lg text-sm font-semibold border transition ${
+                  shiftStatus === o.v
+                    ? o.v === 'free' ? 'bg-green-600 text-white border-green-600'
+                    : o.v === 'busy' ? 'bg-amber-600 text-white border-amber-600'
+                    : 'bg-gray-600 text-white border-gray-600'
+                    : 'bg-gray-50 text-gray-700 border-gray-200 hover:bg-gray-100'
+                }`}
+              >
+                {o.l}
+              </button>
+            ))}
+          </div>
+        </div>
+
+
+
 
         {/* JOYLASHUV */}
         <div className="bg-white p-5 rounded-2xl shadow-sm border mb-6 flex flex-col md:flex-row md:items-center md:justify-between gap-4">
