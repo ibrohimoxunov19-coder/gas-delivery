@@ -8,6 +8,7 @@ import OrderCard from '@/components/OrderCard';
 import Receipt from '@/components/Receipt';
 import ProfileButton from '@/components/ProfileButton';
 import FinanceTab from '@/components/FinanceTab';
+import Map from '@/components/Map';
 import { useRouter } from 'next/navigation';
 import NotificationBell from '@/components/NotificationBell';
 import { notifyOutForDelivery, notifyConfirmed } from '@/lib/sms';
@@ -71,12 +72,18 @@ export default function AdminDashboard() {
 
   useEffect(() => {
     checkUser();
-    const subscription = supabase
+    const ordersCh = supabase
       .channel('orders_changes')
       .on('postgres_changes', { event: '*', schema: 'public', table: 'orders' }, () => loadAll())
       .subscribe();
+    // 🚚 haydovchi joylashuvi o'zgarganda ham xarita yangilanadi (jonli)
+    const driversCh = supabase
+      .channel('drivers_location')
+      .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'profiles' }, () => loadAll())
+      .subscribe();
     return () => {
-      subscription.unsubscribe();
+      ordersCh.unsubscribe();
+      driversCh.unsubscribe();
     };
   }, []);
 
@@ -222,7 +229,7 @@ export default function AdminDashboard() {
       .update({ home_district: district || null })
       .eq('id', driverId);
     if (!error) {
-      toast('Tuman tayinlandi ✓', 'success');
+      toast('Tuman muvaffaqiyatli biriktirildi ✓', 'success');
       setDriversList((prev) =>
         prev.map((d) => (d.id === driverId ? { ...d, home_district: district || undefined } : d))
       );
@@ -263,6 +270,34 @@ export default function AdminDashboard() {
       return true;
     });
   }, [orders, search, statusFilter, dateFilter]);
+
+    // 🗺️ Dispetcher xaritasi: faol buyurtmalar + haydovchi jonli joylashuv
+  const dispatchMarkers = useMemo(() => {
+    const m: Array<{ position: [number, number]; title: string; description?: string }> = [];
+    orders
+      .filter((o) => ['new', 'accepted', 'confirmed', 'on_the_way'].includes(o.status) && o.latitude && o.longitude)
+      .forEach((o) =>
+        m.push({
+          position: [o.latitude!, o.longitude!],
+          title: `Buyurtma #${o.id}`,
+          description: `${o.mfy || ''} ${o.district || ''} · ${o.profiles?.full_name || ''}`,
+        })
+      );
+    driversList
+      .filter((d) => d.latitude && d.longitude)
+      .forEach((d) =>
+        m.push({
+          position: [d.latitude!, d.longitude!],
+          title: `🚚 ${d.full_name}`,
+          description: `Xizmat: ${d.home_district || '—'}`,
+        })
+      );
+    return m;
+  }, [orders, driversList]);
+
+  const dispatchCenter: [number, number] =
+    dispatchMarkers.length > 0 ? dispatchMarkers[0].position : [40.9983, 71.6726];
+
 
   const handleUpdateStatus = async (orderId: number, status: OrderStatus) => {
     const updateData: Record<string, unknown> = {
@@ -571,11 +606,30 @@ export default function AdminDashboard() {
               </div>
             )}
 
-            {/* HUDUDLAR */}
+            {/* HUDUDLAR + DISPETCHER XARITASI */}
             {activeTab === 'regions' && (
               <div>
+                {/* 🗺️ DISPETCHER XARITASI */}
+                <div className="mb-8">
+                  <h3 className="text-xl font-bold mb-2 flex items-center gap-2">
+                    <MapPin className="w-5 h-5 text-blue-600" />
+                    Dispetcher xaritasi
+                  </h3>
+                  <p className="text-sm text-gray-500 mb-3">
+                    Ko'k pin — faol buyurtmalar · 🚚 — haydovchilarning jonli joylashuvi
+                  </p>
+                  {dispatchMarkers.length === 0 ? (
+                    <p className="text-gray-500 text-center py-12 bg-gray-50 rounded-xl">
+                      Hozircha faol buyurtma yoki haydovchi joylashuvi yo'q
+                    </p>
+                  ) : (
+                    <Map center={dispatchCenter} zoom={12} markers={dispatchMarkers} height="420px" />
+                  )}
+                </div>
+
+                {/* 📊 HUHUD TAHLILI */}
                 <h3 className="text-xl font-bold mb-4 flex items-center gap-2">
-                  <MapPin className="w-5 h-5 text-blue-600" />
+                  <MapPin className="w-5 h-5 text-green-600" />
                   Hududlar bo'yicha tahlil
                 </h3>
                 {regionReports.length === 0 ? (
@@ -641,20 +695,25 @@ export default function AdminDashboard() {
                             <p className="font-bold text-gray-800 truncate">{d.full_name}</p>
                             <p className="text-xs text-gray-500">{d.phone}</p>
                           </div>
-                          <select
-                            value={d.home_district || ''}
-                            onChange={(e) => assignDistrict(d.id, e.target.value)}
-                            className="px-3 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none text-sm bg-white"
-                          >
-                            <option value="">— Tuman tanlang —</option>
-                            {REGIONS.flatMap((r) =>
-                              r.districts.map((dist) => (
-                                <option key={`${r.name}-${dist.name}`} value={dist.name}>
-                                  {r.name.replace(' viloyati', '')} · {dist.name}
-                                </option>
-                              ))
+                          <div className="flex items-center gap-2">
+                            <select
+                              value={d.home_district || ''}
+                              onChange={(e) => assignDistrict(d.id, e.target.value)}
+                              className="px-3 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none text-sm bg-white"
+                            >
+                              <option value="">— Tuman tanlang —</option>
+                              {REGIONS.flatMap((r) =>
+                                r.districts.map((dist) => (
+                                  <option key={`${r.name}-${dist.name}`} value={dist.name}>
+                                    {r.name.replace(' viloyati', '')} · {dist.name}
+                                  </option>
+                                ))
+                              )}
+                            </select>
+                            {d.home_district && (
+                              <span className="text-xs font-semibold text-green-600 whitespace-nowrap">✓ Biriktirilgan</span>
                             )}
-                          </select>
+                          </div>  
                         </div>
                       ))
                     )}
