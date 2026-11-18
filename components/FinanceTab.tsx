@@ -114,12 +114,12 @@ export default function FinanceTab() {
         </div>
         <div className="bg-white p-4 rounded-xl border">
           <p className="text-xs text-gray-500 flex items-center gap-1"><Wallet className="w-3 h-3" /> Haydovchi haqlari</p>
-          <p className="text-xl font-bold text-purple-700 mt-1">−{report.totalDriverFees.toLocaleString()} so'm</p>
+          <p className="text-xl font-bold text-purple-700 mt-1">{report.totalDriverFees > 0 ? `−${report.totalDriverFees.toLocaleString()}` : '0'} so'm</p>
           <p className="text-xs text-gray-400">har bir yetkazish uchun</p>
         </div>
         <div className="bg-white p-4 rounded-xl border">
           <p className="text-xs text-gray-500 flex items-center gap-1"><ArrowDownRight className="w-3 h-3" /> Jami CHIQIM</p>
-          <p className="text-xl font-bold text-red-600 mt-1">−{report.totalExpenses.toLocaleString()} so'm</p>
+          <p className="text-xl font-bold text-red-600 mt-1">{report.totalExpenses > 0 ? `−${report.totalExpenses.toLocaleString()}` : '0'} so'm</p>
           <p className="text-xs text-gray-400">{expenses.length} ta yozuv</p>
         </div>
         <div className={`p-4 rounded-xl text-white shadow-lg bg-gradient-to-br ${profitPositive ? 'from-emerald-600 to-green-600' : 'from-red-600 to-rose-600'}`}>
@@ -240,14 +240,20 @@ export default function FinanceTab() {
                   </tr>
                 </thead>
                 <tbody>
-                  {report.byMonth.map((m) => (
-                    <tr key={m.month} className="border-b border-gray-100">
-                      <td className="py-2 font-medium text-gray-700">{m.month}</td>
-                      <td className="py-2 text-center text-blue-600 font-bold">{m.delivered}</td>
-                      <td className="py-2 text-right text-green-700 font-semibold">{m.revenue.toLocaleString()}</td>
-                      <td className="py-2 text-right text-purple-600">{m.distanceKm}</td>
+                  {report.byMonth.length === 0 ? (
+                    <tr>
+                      <td colSpan={4} className="py-6 text-center text-gray-400">Hozircha ma'lumot yo'q</td>
                     </tr>
-                  ))}
+                  ) : (
+                    report.byMonth.map((m) => (
+                      <tr key={m.month} className="border-b border-gray-100">
+                        <td className="py-2 font-medium text-gray-700">{m.month}</td>
+                        <td className="py-2 text-center text-blue-600 font-bold">{m.delivered}</td>
+                        <td className="py-2 text-right text-green-700 font-semibold">{m.revenue.toLocaleString()}</td>
+                        <td className="py-2 text-right text-purple-600">{m.distanceKm}</td>
+                      </tr>
+                    ))
+                  )}
                 </tbody>
               </table>
             </div>
@@ -267,15 +273,21 @@ export default function FinanceTab() {
                   </tr>
                 </thead>
                 <tbody>
-                  {report.perDriver.map((d) => (
-                    <tr key={d.name} className="border-b border-gray-100">
-                      <td className="py-2 font-medium text-gray-700">{d.name}</td>
-                      <td className="py-2 text-center text-blue-600 font-bold">{d.delivered}</td>
-                      <td className="py-2 text-right text-green-700">{d.revenue.toLocaleString()}</td>
-                      <td className="py-2 text-right text-purple-600">{d.fee.toLocaleString()}</td>
-                      <td className="py-2 text-center">{d.avgRating ? `⭐ ${d.avgRating}` : '—'}</td>
+                  {report.perDriver.length === 0 ? (
+                    <tr>
+                      <td colSpan={5} className="py-6 text-center text-gray-400">Hozircha ma'lumot yo'q</td>
                     </tr>
-                  ))}
+                  ) : (
+                    report.perDriver.map((d) => (
+                      <tr key={d.name} className="border-b border-gray-100">
+                        <td className="py-2 font-medium text-gray-700">{d.name}</td>
+                        <td className="py-2 text-center text-blue-600 font-bold">{d.delivered}</td>
+                        <td className="py-2 text-right text-green-700">{d.revenue.toLocaleString()}</td>
+                        <td className="py-2 text-right text-purple-600">{d.fee.toLocaleString()}</td>
+                        <td className="py-2 text-center">{d.avgRating ? `⭐ ${d.avgRating}` : '—'}</td>
+                      </tr>
+                    ))
+                  )}
                 </tbody>
               </table>
             </div>

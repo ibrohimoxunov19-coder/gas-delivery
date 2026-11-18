@@ -181,7 +181,7 @@ export default function AdminDashboard() {
       for (let i = 6; i >= 0; i--) {
         const d = new Date();
         d.setDate(d.getDate() - i);
-        const label = d.toLocaleDateString('uz-UZ', { weekday: 'short' });
+        const label = ['Yak', 'Du', 'Se', 'Chor', 'Pay', 'Jum', 'Shan'][d.getDay()];
         const rev = typed
           .filter((o) => ['delivered', 'completed'].includes(o.status) && new Date(o.created_at).toDateString() === d.toDateString())
           .reduce((s, o) => s + Number(o.total_price), 0);
@@ -411,10 +411,11 @@ export default function AdminDashboard() {
                 fontSize={12}
                 tickLine={false}
                 axisLine={false}
+                domain={[0, Math.max(maxRev, 100000)]}
                 tickFormatter={(v) => `${(v / 1000).toFixed(0)}k`}
               />
-              <Tooltip formatter={(v: any) => [`${Number(v).toLocaleString()} so'm`, 'Daromad']} />
-              <Bar dataKey="revenue" radius={[6, 6, 0, 0]}>
+              <Tooltip formatter={(v: any) => `${Number(v).toLocaleString()} so'm`} />
+              <Bar dataKey="revenue" name="Daromad" radius={[6, 6, 0, 0]}>
                 {weeklyData.map((entry, idx) => (
                   <Cell key={idx} fill={entry.revenue === maxRev ? '#2563eb' : '#93c5fd'} />
                 ))}
@@ -721,7 +722,7 @@ export default function AdminDashboard() {
                   Ombor va narx boshqaruvi
                 </h3>
                 <p className="text-sm text-gray-500 mb-4">
-                  Ballon turlari qoldig'i, narxi va almashtirish narxini shu yerdan tahrirlang (CRUD).
+                  Ballon turlari qoldig'i, narxi va almashtirish narxini shu yerdan tahrirlang.
                 </p>
                 <div className="space-y-3">
                   {stockItems.map((item) => (
@@ -731,7 +732,9 @@ export default function AdminDashboard() {
                     >
                       <div className="flex-1">
                         <p className="font-bold text-gray-800">{item.name}</p>
-                        <p className="text-xs text-gray-500">{item.weight_kg} kg</p>
+                        {item.stock < 15 && (
+                          <p className="text-xs font-semibold text-red-600 mt-0.5">⚠ Kam qoldi ({item.stock} ta)</p>
+                        )}
                       </div>
                       <div className="flex items-center gap-2">
                         <label className="text-xs text-gray-500 w-12">Narx:</label>

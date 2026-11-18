@@ -3,9 +3,7 @@
 import { useState } from 'react';
 import { Profile } from '@/types';
 import ProfileEditor from './ProfileEditor';
-import {
-  X, Edit3, Phone, MapPin, Truck, Car, Hash,
-} from 'lucide-react';
+import { X, Edit3, Phone, MapPin, Truck, Car, Hash } from 'lucide-react';
 
 interface Props {
   profile: Profile;
@@ -25,7 +23,7 @@ function InfoRow({ icon, label, value }: { icon: React.ReactNode; label: string;
       <span className="text-gray-400 mt-0.5 shrink-0">{icon}</span>
       <div className="min-w-0">
         <p className="text-xs text-gray-400">{label}</p>
-        <p className="text-sm font-medium text-gray-800 break-words">{value}</p>
+        <p className="text-sm font-medium text-gray-800 break-words uppercase">{value}</p>
       </div>
     </div>
   );
@@ -37,19 +35,11 @@ export default function ProfileButton({ profile, onUpdated }: Props) {
   const meta = roleMeta[profile.role] || roleMeta.customer;
   const initial = (profile.full_name || '?').trim().charAt(0).toUpperCase();
 
-  const close = () => {
-    setOpen(false);
-    setEditing(false);
-  };
-
-  const handleSaved = () => {
-    setEditing(false);
-    onUpdated();
-  };
+  const close = () => { setOpen(false); setEditing(false); };
+  const handleSaved = () => { setEditing(false); onUpdated(); };
 
   return (
     <>
-      {/* 🔘 Navbar'dagi ikonka (bosh harf + ism) */}
       <button
         onClick={() => setOpen(true)}
         className="flex items-center gap-2 hover:bg-blue-50 px-2 py-1.5 rounded-lg transition"
@@ -63,7 +53,6 @@ export default function ProfileButton({ profile, onUpdated }: Props) {
         </span>
       </button>
 
-      {/* 🪟 Modal */}
       {open && (
         <div
           className="fixed inset-0 z-[9999] bg-black/50 flex items-center justify-center p-4 overflow-y-auto"
@@ -73,7 +62,6 @@ export default function ProfileButton({ profile, onUpdated }: Props) {
             className="bg-white rounded-2xl shadow-2xl w-full max-w-md overflow-hidden my-4"
             onClick={(e) => e.stopPropagation()}
           >
-            {/* Sarlavha + avatar */}
             <div className="bg-gradient-to-r from-blue-600 to-cyan-600 text-white p-5 relative">
               <button
                 onClick={close}
@@ -96,14 +84,16 @@ export default function ProfileButton({ profile, onUpdated }: Props) {
             </div>
 
             {editing ? (
-              /* ✏️ Tahrirlash rejimi (ProfileEditor) */
               <div className="p-5">
-                <ProfileEditor profile={profile} onSaved={handleSaved} />
+                <ProfileEditor
+                  profile={profile}
+                  onSaved={handleSaved}
+                  onCancel={() => setEditing(false)}
+                />
               </div>
             ) : (
-              /* 👁️ Ko'rish rejimi */
               <div className="p-5 space-y-1">
-                <InfoRow icon={<Phone className="w-4 h-4" />} label="Telefon" value={profile.phone} />
+                <InfoRow icon={<Phone className="w-4 h-4" />} label="Shaxsiy raqam (login)" value={profile.phone} />
                 <InfoRow icon={<MapPin className="w-4 h-4" />} label="Manzil" value={profile.address} />
 
                 {profile.role === 'driver' && (
@@ -118,7 +108,7 @@ export default function ProfileButton({ profile, onUpdated }: Props) {
                       label="Mashina"
                       value={[profile.car_plate, profile.car_model].filter(Boolean).join(' · ')}
                     />
-                    <InfoRow icon={<Phone className="w-4 h-4" />} label="Aloqa telefon" value={profile.driver_phone} />
+                    <InfoRow icon={<Phone className="w-4 h-4" />} label="Mijozlar uchun aloqa raqami" value={profile.driver_phone} />
                     <InfoRow icon={<Hash className="w-4 h-4" />} label="Xizmat tumani" value={profile.home_district} />
                   </>
                 )}

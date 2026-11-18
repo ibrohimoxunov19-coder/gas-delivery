@@ -38,8 +38,8 @@ export default function ToastProvider() {
   };
 
   return (
-    <div className="fixed top-4 right-4 z-[9999] space-y-2 w-80 max-w-[90vw]">
-      {toasts.map((t) => (
+    <div className="fixed bottom-4 right-4 z-[9999] space-y-2 w-80 max-w-[90vw]">
+    {toasts.map((t) => (
         <div
           key={t.id}
           className="animate-slide-in-right bg-white rounded-xl shadow-xl border border-gray-100 p-4 flex items-start gap-3"

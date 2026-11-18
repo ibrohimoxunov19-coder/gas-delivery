@@ -4,14 +4,15 @@ import { useState } from 'react';
 import { supabase } from '@/lib/supabase';
 import { Profile } from '@/types';
 import { toast } from './Toast';
-import { User, Save, Car, Phone, MapPin } from 'lucide-react';
+import { User, Save, Car, Phone, MapPin, X } from 'lucide-react';
 
 interface Props {
   profile: Profile;
   onSaved?: () => void;
+  onCancel?: () => void;
 }
 
-export default function ProfileEditor({ profile, onSaved }: Props) {
+export default function ProfileEditor({ profile, onSaved, onCancel }: Props) {
   const [fullName, setFullName] = useState(profile.full_name || '');
   const [phone, setPhone] = useState(profile.phone || '');
   const [address, setAddress] = useState(profile.address || '');
@@ -61,7 +62,7 @@ export default function ProfileEditor({ profile, onSaved }: Props) {
 
       <div>
         <label className="block text-sm font-medium mb-1 text-gray-700 flex items-center gap-1">
-          <Phone className="w-4 h-4" /> Telefon
+          <Phone className="w-4 h-4" /> Shaxsiy raqam (login)
         </label>
         <input value={phone} onChange={(e) => setPhone(e.target.value)}
           placeholder="+998 90 ..." className="w-full px-4 py-2.5 border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none" />
@@ -84,7 +85,7 @@ export default function ProfileEditor({ profile, onSaved }: Props) {
           <div className="grid grid-cols-2 gap-3">
             <div>
               <label className="block text-xs text-gray-500 mb-1">Davlat raqami</label>
-              <input value={carPlate} onChange={(e) => setCarPlate(e.target.value)}
+              <input value={carPlate} onChange={(e) => setCarPlate(e.target.value.toUpperCase())}
                 placeholder="01 A 123 BC" className="w-full px-4 py-2.5 border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none uppercase" />
             </div>
             <div>
@@ -94,17 +95,25 @@ export default function ProfileEditor({ profile, onSaved }: Props) {
             </div>
           </div>
           <div>
-            <label className="block text-xs text-gray-500 mb-1">Haydovchi ish telefoni</label>
+            <label className="block text-xs text-gray-500 mb-1">Mijozlar uchun aloqa raqami</label>
             <input value={driverPhone} onChange={(e) => setDriverPhone(e.target.value)}
               placeholder="+998 90 ..." className="w-full px-4 py-2.5 border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none" />
           </div>
         </>
       )}
 
-      <button onClick={handleSave} disabled={saving}
-        className="w-full bg-gradient-to-r from-blue-600 to-blue-700 text-white py-3 rounded-xl font-semibold hover:from-blue-700 transition shadow-md disabled:opacity-50 flex items-center justify-center gap-2">
-        <Save className="w-5 h-5" /> {saving ? 'Saqlanmoqda...' : 'Saqlash'}
-      </button>
+      <div className="flex gap-2">
+        {onCancel && (
+          <button onClick={onCancel}
+            className="flex-1 bg-gray-100 text-gray-700 py-3 rounded-xl font-semibold hover:bg-gray-200 transition flex items-center justify-center gap-2">
+            <X className="w-5 h-5" /> Bekor qilish
+          </button>
+        )}
+        <button onClick={handleSave} disabled={saving}
+          className="flex-1 bg-gradient-to-r from-blue-600 to-blue-700 text-white py-3 rounded-xl font-semibold hover:from-blue-700 transition shadow-md disabled:opacity-50 flex items-center justify-center gap-2">
+          <Save className="w-5 h-5" /> {saving ? 'Saqlanmoqda...' : 'Saqlash'}
+        </button>
+      </div>
     </div>
   );
 }
