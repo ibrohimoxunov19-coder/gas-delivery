@@ -51,6 +51,7 @@ export default function DriverDashboard() {
   // 🗺️ Admin tayinlagan tuman (o'qiladi, o'zgartirilmaydi)
   const [assignedDistrict, setAssignedDistrict] = useState<string>('');
   const districtRef = useRef<string>('');
+  const userRef = useRef<string | null>(null);
 
   // 📊 Hisobot
   const [report, setReport] = useState<DriverReport | null>(null);
@@ -73,7 +74,7 @@ export default function DriverDashboard() {
         (payload) => {
           const n = payload.new as any;
           // 🔒 Faqat o'z tumanidagi yangi buyurtma uchun push (tumanisiz → push yo'q)
-          if (n.status === 'new' && districtRef.current && n.district === districtRef.current) {
+          if (n.status === 'new' && (n.district === districtRef.current || n.driver_id === userRef.current)) {
             sendPush('GazExpress — Yangi buyurtma', `#${n.id} · ${n.mfy || n.district || 'Yangi'} MFY`);
           }
           loadOrders();
@@ -126,6 +127,7 @@ export default function DriverDashboard() {
     }
 
     setUser(profile);
+    userRef.current = profile.id;
     setShiftStatus((profile.shift_status as 'free' | 'busy' | 'offline') || 'free');
     if (profile.latitude && profile.longitude) {
       setMyPos([profile.latitude, profile.longitude]);
@@ -169,17 +171,18 @@ export default function DriverDashboard() {
   };
 
   const loadOrders = async () => {
-    // 🔒 Tuman biriktirilmagan haydovchi HECH QANDAY buyurtma ko'rmaydi
-    if (!districtRef.current) {
-      setOrders([]);
-      return;
-    }
-    const { data, error } = await supabase
+    if (!user) return;
+    let q = supabase
       .from('orders')
       .select(`*, profiles:customer_id (full_name, phone), cylinder_types:cylinder_type_id (name)`)
-      .in('status', ['new', 'accepted', 'confirmed', 'on_the_way', 'delivered', 'completed'])
-      .eq('district', districtRef.current)
-      .order('created_at', { ascending: false });
+      .in('status', ['new', 'accepted', 'confirmed', 'on_the_way', 'delivered', 'completed']);
+    // 🔒 tumanisiz → faqat o'ziga biriktirilgan; tumanli → o'z tumani OR biriktirilgan
+    if (districtRef.current) {
+      q = q.or(`district.eq.${districtRef.current},driver_id.eq.${user.id}`);
+    } else {
+      q = q.eq('driver_id', user.id);
+    }
+    const { data, error } = await q.order('created_at', { ascending: false });
     if (!error && data) setOrders(data as Order[]);
   };
 
@@ -198,16 +201,17 @@ export default function DriverDashboard() {
   };
 
   const loadMfyStats = async () => {
-    // 🔒 Tuman biriktirilmagan → mahalla statistikasi ham bo'sh
-    if (!districtRef.current) {
-      setMfyStats([]);
-      return;
-    }
-    const { data, error } = await supabase
+    if (!user) return;
+    let q = supabase
       .from('orders')
       .select('mfy, total_price, status')
-      .in('status', ['new', 'accepted', 'confirmed', 'on_the_way', 'delivered', 'completed'])
-      .eq('district', districtRef.current);
+      .in('status', ['new', 'accepted', 'confirmed', 'on_the_way', 'delivered', 'completed']);
+    if (districtRef.current) {
+      q = q.or(`district.eq.${districtRef.current},driver_id.eq.${user.id}`);
+    } else {
+      q = q.eq('driver_id', user.id);
+    }
+    const { data, error } = await q;
     if (!error && data) {
       const stats: Record<string, MfyStat> = {};
       data.forEach((o: any) => {
