@@ -10,6 +10,7 @@ import Receipt from '@/components/Receipt';
 import ProfileButton from '@/components/ProfileButton';
 import OrderTimeline from '@/components/OrderTimeline';
 import RatingModal from '@/components/RatingModal';
+import NotificationBell from '@/components/NotificationBell';
 import { requestNotifPermission, hasNotifPermission, sendPush } from '@/lib/notifications';
 import { useRouter } from 'next/navigation';
 import {
@@ -183,13 +184,7 @@ export default function CustomerDashboard() {
           <h1 className="text-2xl font-bold text-gray-800">Mijoz paneli</h1>
           <div className="flex items-center gap-3">
             {!notifOn ? (
-              <button
-                onClick={handleEnableNotif}
-                className="flex items-center gap-2 text-blue-600 hover:bg-blue-50 px-3 py-2 rounded-lg transition text-sm font-semibold"
-              >
-                <Bell className="w-4 h-4" />
-                <span className="hidden sm:inline">Bildirishnoma</span>
-              </button>
+            <NotificationBell role="customer" customerId={user?.id} />
             ) : (
               <span className="flex items-center gap-1 text-green-600 text-sm font-semibold">
                 <BellRing className="w-4 h-4" />

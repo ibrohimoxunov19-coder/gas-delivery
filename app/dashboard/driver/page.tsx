@@ -10,6 +10,7 @@ import { toast } from '@/components/Toast';
 import { requestNotifPermission, hasNotifPermission, sendPush } from '@/lib/notifications';
 import ProfileButton from '@/components/ProfileButton';
 import { getNavUrl } from '@/lib/navigation';
+import NotificationBell from '@/components/NotificationBell';
 import { notifyOutForDelivery, notifyConfirmed } from '@/lib/sms';
 import {
   buildDriverReport,
@@ -406,20 +407,7 @@ export default function DriverDashboard() {
             Haydovchi paneli
           </h1>
           <div className="flex items-center gap-3">
-            {!notifOn ? (
-              <button
-                onClick={handleEnableNotif}
-                className="flex items-center gap-2 text-blue-600 hover:bg-blue-50 px-3 py-2 rounded-lg transition text-sm font-semibold"
-              >
-                <Bell className="w-4 h-4" />
-                <span className="hidden sm:inline">Bildirishnoma</span>
-              </button>
-            ) : (
-              <span className="flex items-center gap-1 text-green-600 text-sm font-semibold">
-                <BellRing className="w-4 h-4" />
-                <span className="hidden sm:inline">Yoqilgan</span>
-              </span>
-            )}
+            <NotificationBell role="driver" district={assignedDistrict} />
             {user && <ProfileButton profile={user} onUpdated={checkUser} />}
             <button
               onClick={handleLogout}
@@ -817,10 +805,10 @@ export default function DriverDashboard() {
                   showActions={true}
                   onUpdateStatus={handleUpdateStatus}
                 />
-                {myPos && order.latitude && order.longitude && (
+                {order.latitude && order.longitude && (
                   <div className="flex gap-2 mt-2">
                     <a
-                      href={getNavUrl(myPos[0], myPos[1], order.latitude, order.longitude, 'google')}
+                      href={getNavUrl(myPos?.[0], myPos?.[1], order.latitude, order.longitude, 'google')}
                       target="_blank"
                       rel="noopener noreferrer"
                       className="flex-1 bg-green-600 text-white py-2.5 rounded-lg text-sm font-semibold flex items-center justify-center gap-1 hover:bg-green-700 transition"
@@ -829,7 +817,7 @@ export default function DriverDashboard() {
                       Google Maps
                     </a>
                     <a
-                      href={getNavUrl(myPos[0], myPos[1], order.latitude, order.longitude, 'yandex')}
+                      href={getNavUrl(myPos?.[0], myPos?.[1], order.latitude, order.longitude, 'yandex')}
                       target="_blank"
                       rel="noopener noreferrer"
                       className="flex-1 bg-red-600 text-white py-2.5 rounded-lg text-sm font-semibold flex items-center justify-center gap-1 hover:bg-red-700 transition"

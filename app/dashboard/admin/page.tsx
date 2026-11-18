@@ -9,6 +9,7 @@ import Receipt from '@/components/Receipt';
 import ProfileButton from '@/components/ProfileButton';
 import FinanceTab from '@/components/FinanceTab';
 import { useRouter } from 'next/navigation';
+import NotificationBell from '@/components/NotificationBell';
 import { notifyOutForDelivery, notifyConfirmed } from '@/lib/sms';
 import { toast } from '@/components/Toast';
 import {
@@ -203,7 +204,15 @@ export default function AdminDashboard() {
       .select('*')
       .eq('role', 'driver')
       .order('full_name');
-    if (drivers) setDriversList(drivers as Profile[]);
+    if (drivers) {
+      // 🧹 test yozuvlarni filtrlash (ism/telefon "1" yoki "test" bo'lsa)
+      const clean = (drivers as Profile[]).filter(
+        (d) =>
+          d.full_name && d.full_name.trim() !== '1' && !/test/i.test(d.full_name) &&
+          d.phone && d.phone.trim() !== '1'
+      );
+      setDriversList(clean);
+    }
   };
 
   // 🗺️ Admin haydovchiga tuman tayinlaydi
@@ -351,6 +360,7 @@ export default function AdminDashboard() {
             Admin paneli
           </h1>
           <div className="flex items-center gap-4">
+            <NotificationBell role="admin" />
             {/* 👤 Profil ikonkasi */}
             {user && <ProfileButton profile={user} onUpdated={checkUser} />}
             <button
