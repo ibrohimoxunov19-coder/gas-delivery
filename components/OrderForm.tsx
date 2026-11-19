@@ -77,6 +77,10 @@ export default function OrderForm({ customerId, onSuccess }: OrderFormProps) {
         : [41.37, 64.58];
   const mapZoom = gpsLoc ? 15 : selectedDistrict ? 13 : selectedRegion ? 9 : 6;
 
+  // 🏘️ MFY ro'yxati faqat tanlangan tuman/shahar uchun
+  const mfySuggestions = district ? MFY_ZONES.filter((z) => z.district === district) : [];
+
+
   const locationSelected = latitude !== null && longitude !== null;
   const selectedCylinder = cylinderTypes.find((ct) => ct.id === selectedType);
   const stock = selectedCylinder?.stock ?? 0;
@@ -166,6 +170,7 @@ export default function OrderForm({ customerId, onSuccess }: OrderFormProps) {
     setLoading(true);
     try {
       const receiptNo = `RX-${Date.now().toString().slice(-6)}`;
+      const deliveryPin = String(Math.floor(1000 + Math.random() * 9000)); // 🔐 bir marta
       const { error } = await supabase.from('orders').insert({
         customer_id: customerId,
         cylinder_type_id: selectedType,
@@ -185,6 +190,7 @@ export default function OrderForm({ customerId, onSuccess }: OrderFormProps) {
         is_recurring: isRecurring,
         recurring_day: isRecurring ? (Number(recurringDay) || null) : null,
         recurring_time: isRecurring ? (recurringTime || null) : null,
+        delivery_pin: deliveryPin,
         status: 'new',
       });
       if (error) throw error;
@@ -194,7 +200,8 @@ export default function OrderForm({ customerId, onSuccess }: OrderFormProps) {
         u.lang = 'uz-UZ';
         speechSynthesis.speak(u);
       }
-      toast(`Buyurtma qabul qilindi! Kvitansiya: ${receiptNo}`, 'success');
+      const pin = String(Math.floor(1000 + Math.random() * 9000));
+      toast(`Buyurtma qabul qilindi! Kvitansiya: ${receiptNo} · PIN: ${deliveryPin}`, 'success');
       setAddress('');
       setRegion('');
       setDistrict('');
@@ -283,12 +290,12 @@ export default function OrderForm({ customerId, onSuccess }: OrderFormProps) {
           value={mfy}
           onChange={(e) => setMfy(e.target.value)}
           list="mfy-suggestions"
-          placeholder="Yozing yoki ro'yxatdan tanlang..."
+          placeholder={district ? "Yozing yoki ro'yxatdan tanlang..." : "Avval tuman/shahar tanlang..."}
           className="w-full px-4 py-2.5 border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none transition"
           required
         />
         <datalist id="mfy-suggestions">
-          {MFY_ZONES.map((z) => (<option key={z.name} value={z.name} />))}
+          {mfySuggestions.map((z) => (<option key={z.name} value={z.name} />))}
         </datalist>
       </div>
 
