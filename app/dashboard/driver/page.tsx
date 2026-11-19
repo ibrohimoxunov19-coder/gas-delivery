@@ -7,7 +7,7 @@ import OrderCard from '@/components/OrderCard';
 import Map from '@/components/Map';
 import Receipt from '@/components/Receipt';
 import { toast } from '@/components/Toast';
-import { requestNotifPermission, hasNotifPermission, sendPush } from '@/lib/notifications';
+import { sendPush } from '@/lib/notifications';
 import ProfileButton from '@/components/ProfileButton';
 import { getNavUrl } from '@/lib/navigation';
 import NotificationBell from '@/components/NotificationBell';
@@ -21,7 +21,7 @@ import {
 import { useRouter } from 'next/navigation';
 import {
   LogOut, Truck, MapPin, Star, Filter, TrendingUp, Package, Calendar,
-  Navigation, Radio, Bell, BellRing, ExternalLink, BarChart3, WifiOff,
+  Navigation, Radio, ExternalLink, BarChart3, WifiOff,
   Route, Wallet, FileText, Download, AlertTriangle,
 } from 'lucide-react';
 
@@ -46,7 +46,10 @@ export default function DriverDashboard() {
   const [myPos, setMyPos] = useState<[number, number] | null>(null);
   const [liveMode, setLiveMode] = useState(false);
   const [shiftStatus, setShiftStatus] = useState<'free' | 'busy' | 'offline'>('free');
-  const [notifOn, setNotifOn] = useState(false);
+  const [loadedFull, setLoadedFull] = useState(0);
+  const [showStartModal, setShowStartModal] = useState(false);
+  const [showCloseModal, setShowCloseModal] = useState(false);
+  const [startQty, setStartQty] = useState('');
 
   // 🗺️ Admin tayinlagan tuman (o'qiladi, o'zgartirilmaydi)
   const [assignedDistrict, setAssignedDistrict] = useState<string>('');
@@ -61,7 +64,6 @@ export default function DriverDashboard() {
   const router = useRouter();
 
   useEffect(() => {
-    setNotifOn(hasNotifPermission());
     checkUser();
   }, []);
 
@@ -73,7 +75,7 @@ export default function DriverDashboard() {
         { event: 'INSERT', schema: 'public', table: 'orders' },
         (payload) => {
           const n = payload.new as any;
-          // 🔒 Faqat o'z tumanidagi yangi buyurtma uchun push (tumanisiz → push yo'q)
+          // 🔒 Faqat o'z tumanidagi yoki o'ziga biriktirilgan yangi buyurtma uchun push
           if (n.status === 'new' && (n.district === districtRef.current || n.driver_id === userRef.current)) {
             sendPush('GazExpress — Yangi buyurtma', `#${n.id} · ${n.mfy || n.district || 'Yangi'} MFY`);
           }
@@ -129,6 +131,7 @@ export default function DriverDashboard() {
     setUser(profile);
     userRef.current = profile.id;
     setShiftStatus((profile.shift_status as 'free' | 'busy' | 'offline') || 'free');
+    setLoadedFull(profile.loaded_full || 0);
     if (profile.latitude && profile.longitude) {
       setMyPos([profile.latitude, profile.longitude]);
     }
@@ -243,6 +246,7 @@ export default function DriverDashboard() {
       });
     }
   };
+
   // ✅ Ko'p buyurtmani bir zumda tanlash va yo'lga chiqarish
   const toggleSelect = (id: number) => {
     setSelectedIds((prev) =>
@@ -252,7 +256,7 @@ export default function DriverDashboard() {
 
   const clearSelection = () => setSelectedIds([]);
 
-  // 🔁 Holatga qarab keyingi bosqich (zanjir: new→confirmed→on_the_way→delivered)
+  // 🔁 Holatga qarab keyingi bosqich (zanjir: new→accepted→confirmed→on_the_way→delivered)
   const nextOf = (s: OrderStatus): OrderStatus | null => {
     const map: Record<OrderStatus, OrderStatus | null> = {
       new: 'accepted',
@@ -300,6 +304,7 @@ export default function DriverDashboard() {
       loadMyReport();
     }
   };
+
   const handleUpdateStatus = async (orderId: number, status: OrderStatus) => {
     const updateData: Record<string, unknown> = {
       status,
@@ -338,19 +343,30 @@ export default function DriverDashboard() {
     }
   };
 
-    const saveShift = async (s: 'free' | 'busy' | 'offline') => {
+  const saveShift = async (s: 'free' | 'busy' | 'offline') => {
     setShiftStatus(s);
     if (user) {
       await supabase.from('profiles').update({ shift_status: s }).eq('id', user.id);
     }
   };
 
+  const startShift = async () => {
+    const n = Number(startQty);
+    if (!n || n <= 0) { toast('Yuklangan ballonlar sonini kiriting', 'error'); return; }
+    setLoadedFull(n);
+    if (user) await supabase.from('profiles').update({ loaded_full: n, shift_status: 'busy' }).eq('id', user.id);
+    setShiftStatus('busy');
+    setShowStartModal(false);
+    setStartQty('');
+    toast(`Smena boshlandi — ${n} ta to'la ballon yuklandi 📦`, 'success');
+  };
 
-  const handleEnableNotif = async () => {
-    const ok = await requestNotifPermission();
-    setNotifOn(ok);
-    if (ok) toast('Bildirishnomalar yoqildi 🔔', 'success');
-    else toast('Ruxsat berilmadi', 'error');
+  const closeShift = async () => {
+    if (user) await supabase.from('profiles').update({ loaded_full: 0, shift_status: 'offline' }).eq('id', user.id);
+    setLoadedFull(0);
+    setShiftStatus('offline');
+    setShowCloseModal(false);
+    toast('Smena yakunlandi — omborga topshirildi ✓', 'success');
   };
 
   const handleLogout = async () => {
@@ -382,7 +398,8 @@ export default function DriverDashboard() {
     });
   }
   const topMfy = mfyStats[0];
-    // 🏷️ Tanlanganlarning holatiga qarab tugma matni
+
+  // 🏷️ Tanlanganlarning holatiga qarab tugma matni
   const selectedOrders = orders.filter((o) => selectedIds.includes(o.id));
   const nexts = selectedOrders
     .map((o) => nextOf(o.status))
@@ -401,6 +418,22 @@ export default function DriverDashboard() {
   const maxMonth = report && report.byMonth.length
     ? Math.max(...report.byMonth.map((m) => m.revenue), 1)
     : 1;
+
+  // 📦 BORT BALANSI (bugungi yetkazilganlardan hisoblanadi)
+  const todayStr = new Date().toDateString();
+  const todayDelivered = orders.filter(
+    (o) =>
+      (o.status === 'delivered' || o.status === 'completed') &&
+      o.driver_id === user?.id &&
+      o.delivered_at &&
+      new Date(o.delivered_at).toDateString() === todayStr
+  );
+  const deliveredCount = todayDelivered.reduce((s, o) => s + (o.quantity || 0), 0);
+  const collectedEmpty = todayDelivered.reduce((s, o) => s + (o.empty_balloons || 0), 0);
+  const cashDue = todayDelivered
+    .filter((o) => o.payment_method === 'cash')
+    .reduce((s, o) => s + Number(o.total_price || 0), 0);
+  const remainingFull = Math.max(0, loadedFull - deliveredCount);
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -606,9 +639,9 @@ export default function DriverDashboard() {
           </div>
           <div className="flex gap-2">
             {([
-              { v: 'free', l: 'Bo\'sh', c: 'green' },
-              { v: 'busy', l: 'Band', c: 'amber' },
-              { v: 'offline', l: 'Oflayn', c: 'gray' },
+              { v: 'free', l: 'Bo\'sh' },
+              { v: 'busy', l: 'Band' },
+              { v: 'offline', l: 'Oflayn' },
             ] as const).map((o) => (
               <button
                 key={o.v}
@@ -627,8 +660,49 @@ export default function DriverDashboard() {
           </div>
         </div>
 
-
-
+        {/* 📦 BORT BALANSI */}
+        <div className="bg-white p-5 rounded-2xl shadow-sm border mb-6">
+          <div className="flex items-center justify-between mb-4">
+            <h3 className="font-bold text-gray-800 flex items-center gap-2">
+              <Package className="w-5 h-5 text-blue-600" /> Bortdagi ballon balansi
+            </h3>
+            <div className="flex gap-2">
+              {loadedFull === 0 ? (
+                <button onClick={() => setShowStartModal(true)}
+                  className="bg-blue-600 text-white px-4 py-2 rounded-lg text-sm font-semibold hover:bg-blue-700 transition flex items-center gap-1">
+                  <Package className="w-4 h-4" /> Smenani boshlash
+                </button>
+              ) : (
+                <button onClick={() => setShowCloseModal(true)}
+                  className="bg-amber-600 text-white px-4 py-2 rounded-lg text-sm font-semibold hover:bg-amber-700 transition flex items-center gap-1">
+                  <FileText className="w-4 h-4" /> Smenani yopish aktsi
+                </button>
+              )}
+            </div>
+          </div>
+          {loadedFull === 0 ? (
+            <p className="text-sm text-gray-500">Smena boshlanmagan — ombordan ballon yuklang.</p>
+          ) : (
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+              <div className="bg-blue-50 p-3 rounded-xl">
+                <p className="text-xs text-gray-500">Yuklangan (to'la)</p>
+                <p className="text-xl font-bold text-blue-700">{loadedFull}</p>
+              </div>
+              <div className="bg-green-50 p-3 rounded-xl">
+                <p className="text-xs text-gray-500">Yetkazilgan (bugun)</p>
+                <p className="text-xl font-bold text-green-700">{deliveredCount}</p>
+              </div>
+              <div className="bg-purple-50 p-3 rounded-xl">
+                <p className="text-xs text-gray-500">Bo'sh idish yig'ildi</p>
+                <p className="text-xl font-bold text-purple-700">{collectedEmpty}</p>
+              </div>
+              <div className="bg-amber-50 p-3 rounded-xl">
+                <p className="text-xs text-gray-500">Qoldiq (to'la)</p>
+                <p className={`text-xl font-bold ${remainingFull > 0 ? 'text-amber-700' : 'text-gray-400'}`}>{remainingFull}</p>
+              </div>
+            </div>
+          )}
+        </div>
 
         {/* JOYLASHUV */}
         <div className="bg-white p-5 rounded-2xl shadow-sm border mb-6 flex flex-col md:flex-row md:items-center md:justify-between gap-4">
@@ -751,7 +825,7 @@ export default function DriverDashboard() {
           </div>
         )}
 
-                {/* ✅ Tanlanganlar paneli (faqir biror narsa tanlansa ko'rinadi) */}
+        {/* ✅ Tanlanganlar paneli (biror narsa tanlansa ko'rinadi) */}
         {selectedIds.length > 0 && (
           <div className="sticky top-16 z-10 bg-blue-600 text-white px-4 py-3 rounded-xl mb-4 flex items-center justify-between shadow-lg">
             <span className="font-semibold">{selectedIds.length} ta tanlandi</span>
@@ -771,7 +845,6 @@ export default function DriverDashboard() {
             </div>
           </div>
         )}
-
 
         <h2 className="text-2xl font-bold mb-4 flex items-center gap-2">
           <TrendingUp className="w-6 h-6" />
@@ -840,6 +913,72 @@ export default function DriverDashboard() {
       {receiptOrder && (
         <Receipt order={receiptOrder} onClose={() => setReceiptOrder(null)} />
       )}
+
+      {/* 📦 SMENANI BOSHLASH MODALI */}
+      {showStartModal && (
+        <div className="fixed inset-0 z-[9999] bg-black/50 flex items-center justify-center p-4" onClick={() => setShowStartModal(false)}>
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-sm p-6" onClick={(e) => e.stopPropagation()}>
+            <h3 className="text-lg font-bold mb-2 flex items-center gap-2">
+              <Package className="w-5 h-5 text-blue-600" /> Smenani boshlash
+            </h3>
+            <p className="text-sm text-gray-500 mb-4">Ombordan yuklangan to'la ballonlar sonini kiriting.</p>
+            <input type="number" min="1" value={startQty} onChange={(e) => setStartQty(e.target.value)}
+              placeholder="Masalan: 10"
+              className="w-full px-4 py-2.5 border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none mb-4" />
+            <div className="flex gap-2">
+              <button onClick={() => setShowStartModal(false)}
+                className="flex-1 bg-gray-100 text-gray-700 py-2.5 rounded-lg font-semibold hover:bg-gray-200 transition">
+                Bekor
+              </button>
+              <button onClick={startShift}
+                className="flex-1 bg-blue-600 text-white py-2.5 rounded-lg font-semibold hover:bg-blue-700 transition">
+                Yuklashni tasdiqlash
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* 📄 SMENANI YOPISH AKTSI MODALI */}
+      {showCloseModal && (
+        <div className="fixed inset-0 z-[9999] bg-black/50 flex items-center justify-center p-4" onClick={() => setShowCloseModal(false)}>
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md p-6" onClick={(e) => e.stopPropagation()}>
+            <h3 className="text-lg font-bold mb-4 flex items-center gap-2">
+              <FileText className="w-5 h-5 text-amber-600" /> Smenani yopish aktsi
+            </h3>
+            <p className="text-sm text-gray-500 mb-4">Omborga topshiriladigan jamlovchi:</p>
+            <div className="space-y-2 mb-5">
+              <div className="flex justify-between py-2 border-b">
+                <span className="text-gray-600">Qolgan to'la ballonlar (qaytariladi)</span>
+                <span className="font-bold text-amber-700">{remainingFull} ta</span>
+              </div>
+              <div className="flex justify-between py-2 border-b">
+                <span className="text-gray-600">Yig'ilgan bo'sh idishlar (tara)</span>
+                <span className="font-bold text-purple-700">{collectedEmpty} ta</span>
+              </div>
+              <div className="flex justify-between py-2 border-b">
+                <span className="text-gray-600">Topshiriladigan naqd pul</span>
+                <span className="font-bold text-green-700">{cashDue.toLocaleString()} so'm</span>
+              </div>
+              <div className="flex justify-between py-2 bg-gray-50 rounded-lg px-3">
+                <span className="font-semibold text-gray-800">Jami yetkazilgan (bugun)</span>
+                <span className="font-bold text-blue-700">{deliveredCount} ta</span>
+              </div>
+            </div>
+            <div className="flex gap-2">
+              <button onClick={() => setShowCloseModal(false)}
+                className="flex-1 bg-gray-100 text-gray-700 py-2.5 rounded-lg font-semibold hover:bg-gray-200 transition">
+                Bekor
+              </button>
+              <button onClick={closeShift}
+                className="flex-1 bg-amber-600 text-white py-2.5 rounded-lg font-semibold hover:bg-amber-700 transition">
+                Tasdiqlash va yopish
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
     </div>
   );
 }
