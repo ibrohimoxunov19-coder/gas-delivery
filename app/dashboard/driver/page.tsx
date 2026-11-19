@@ -22,7 +22,7 @@ import { useRouter } from 'next/navigation';
 import {
   LogOut, Truck, MapPin, Star, Filter, TrendingUp, Package, Calendar,
   Navigation, Radio, ExternalLink, BarChart3, WifiOff,
-  Route, Wallet, FileText, Download, AlertTriangle,
+  Route, Wallet, FileText, Download, AlertTriangle, Lock,
 } from 'lucide-react';
 
 interface MfyStat {
@@ -36,7 +36,7 @@ export default function DriverDashboard() {
   const [orders, setOrders] = useState<Order[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedMfy, setSelectedMfy] = useState<string>('');
-  const [selectedIds, setSelectedIds] = useState<number[]>([]); // ✅ ko'p tanlash
+  const [selectedIds, setSelectedIds] = useState<number[]>([]);
   const [mfyStats, setMfyStats] = useState<MfyStat[]>([]);
   const [driverStats, setDriverStats] = useState({
     totalDelivered: 0,
@@ -51,12 +51,15 @@ export default function DriverDashboard() {
   const [showCloseModal, setShowCloseModal] = useState(false);
   const [startQty, setStartQty] = useState('');
 
-  // 🗺️ Admin tayinlagan tuman (o'qiladi, o'zgartirilmaydi)
+  // 🔐 PIN kiritish modali
+  const [pinOrder, setPinOrder] = useState<Order | null>(null);
+  const [pinInput, setPinInput] = useState('');
+  const [pinError, setPinError] = useState('');
+
   const [assignedDistrict, setAssignedDistrict] = useState<string>('');
   const districtRef = useRef<string>('');
   const userRef = useRef<string | null>(null);
 
-  // 📊 Hisobot
   const [report, setReport] = useState<DriverReport | null>(null);
   const [receiptOrder, setReceiptOrder] = useState<Order | null>(null);
 
@@ -75,7 +78,6 @@ export default function DriverDashboard() {
         { event: 'INSERT', schema: 'public', table: 'orders' },
         (payload) => {
           const n = payload.new as any;
-          // 🔒 Faqat o'z tumanidagi yoki o'ziga biriktirilgan yangi buyurtma uchun push
           if (n.status === 'new' && (n.district === districtRef.current || n.driver_id === userRef.current)) {
             sendPush('GazExpress — Yangi buyurtma', `#${n.id} · ${n.mfy || n.district || 'Yangi'} MFY`);
           }
@@ -136,7 +138,6 @@ export default function DriverDashboard() {
       setMyPos([profile.latitude, profile.longitude]);
     }
 
-    // 🗺️ Admin tayinlagan tumanni o'qish
     if (profile.home_district) {
       setAssignedDistrict(profile.home_district);
       districtRef.current = profile.home_district;
@@ -179,7 +180,6 @@ export default function DriverDashboard() {
       .from('orders')
       .select(`*, profiles:customer_id (full_name, phone), cylinder_types:cylinder_type_id (name)`)
       .in('status', ['new', 'accepted', 'confirmed', 'on_the_way', 'delivered', 'completed']);
-    // 🔒 tumanisiz → faqat o'ziga biriktirilgan; tumanli → o'z tumani OR biriktirilgan
     if (districtRef.current) {
       q = q.or(`district.eq.${districtRef.current},driver_id.eq.${user.id}`);
     } else {
@@ -247,7 +247,6 @@ export default function DriverDashboard() {
     }
   };
 
-  // ✅ Ko'p buyurtmani bir zumda tanlash va yo'lga chiqarish
   const toggleSelect = (id: number) => {
     setSelectedIds((prev) =>
       prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]
@@ -256,7 +255,6 @@ export default function DriverDashboard() {
 
   const clearSelection = () => setSelectedIds([]);
 
-  // 🔁 Holatga qarab keyingi bosqich (zanjir: new→accepted→confirmed→on_the_way→delivered)
   const nextOf = (s: OrderStatus): OrderStatus | null => {
     const map: Record<OrderStatus, OrderStatus | null> = {
       new: 'accepted',
@@ -278,20 +276,20 @@ export default function DriverDashboard() {
       const ord = orders.find((o) => o.id === id);
       if (!ord) continue;
       const next = nextOf(ord.status);
-      if (!next) continue; // yakunlangan — o'tkazib yuboramiz
+      if (!next) continue;
+      // 🔐 delivered — PIN talab qiladi, bulk'da o'tkazib yuboramiz (bittalab qilinadi)
+      if (next === 'delivered') continue;
       const updateData: Record<string, unknown> = {
         status: next,
         updated_at: new Date().toISOString(),
       };
       if (next === 'confirmed') updateData.driver_id = user!.id;
-      if (next === 'delivered') updateData.delivered_at = new Date().toISOString();
       const { error } = await supabase
         .from('orders')
         .update(updateData)
         .eq('id', id);
       if (error) continue;
       moved++;
-      // 📱 SMS: tasdiqlash va yo'lga chiqishda (qabulda SMS yo'q)
       if (next === 'confirmed') notifyConfirmed(ord.profiles?.phone, id);
       else if (next === 'on_the_way') notifyOutForDelivery(ord.profiles?.phone, id);
     }
@@ -306,18 +304,28 @@ export default function DriverDashboard() {
   };
 
   const handleUpdateStatus = async (orderId: number, status: OrderStatus) => {
+    // 🔐 DELIVERED — PIN modali ochiladi (darhol qilmaydi)
+    if (status === 'delivered') {
+      const ord = orders.find((o) => o.id === orderId);
+      if (!ord?.delivery_pin) {
+        toast('Bu buyurtmada PIN yo\'q — admin orqali belgilang', 'error');
+        return;
+      }
+      setPinOrder(ord);
+      setPinInput('');
+      setPinError('');
+      return;
+    }
     const updateData: Record<string, unknown> = {
       status,
       updated_at: new Date().toISOString(),
     };
     if (status === 'confirmed') updateData.driver_id = user!.id;
-    if (status === 'delivered') updateData.delivered_at = new Date().toISOString();
     const { error } = await supabase
       .from('orders')
       .update(updateData)
       .eq('id', orderId);
     if (!error) {
-      // 📱 SMS: tasdiqlash va yo'lga chiqish
       if (status === 'confirmed' || status === 'on_the_way') {
         const ord = orders.find((o) => o.id === orderId);
         if (status === 'confirmed') notifyConfirmed(ord?.profiles?.phone, orderId);
@@ -328,7 +336,6 @@ export default function DriverDashboard() {
           accepted: 'Buyurtma qabul qilindi',
           confirmed: 'Buyurtma tasdiqlandi',
           on_the_way: "Buyurtma yo'lda",
-          delivered: 'Buyurtma yetkazildi',
         };
         const u = new SpeechSynthesisUtterance(t[status] || '');
         u.lang = 'uz-UZ';
@@ -336,10 +343,42 @@ export default function DriverDashboard() {
       }
       loadOrders();
       loadMfyStats();
-      if (status === 'delivered' && user) {
-        loadDriverStats(user.id);
-        loadMyReport();
-      }
+    }
+  };
+
+  // 🔐 PIN tasdiqlash — kod to'g'ri bo'lsagina delivered
+  const confirmPin = async () => {
+    if (!pinOrder) return;
+    if (pinInput.trim() !== pinOrder.delivery_pin) {
+      setPinError('Kod noto\'g\'ri — mijozdan so\'rang');
+      return;
+    }
+    const { error } = await supabase
+      .from('orders')
+      .update({
+        status: 'delivered',
+        delivered_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+      })
+      .eq('id', pinOrder.id);
+    if (error) {
+      toast('Xatolik: ' + error.message, 'error');
+      return;
+    }
+    toast('Buyurtma yetkazildi — kod tasdiqlandi 💰', 'success');
+    if ('speechSynthesis' in window) {
+      const u = new SpeechSynthesisUtterance('Buyurtma yetkazildi');
+      u.lang = 'uz-UZ';
+      speechSynthesis.speak(u);
+    }
+    setPinOrder(null);
+    setPinInput('');
+    setPinError('');
+    loadOrders();
+    loadMfyStats();
+    if (user) {
+      loadDriverStats(user.id);
+      loadMyReport();
     }
   };
 
@@ -399,17 +438,16 @@ export default function DriverDashboard() {
   }
   const topMfy = mfyStats[0];
 
-  // 🏷️ Tanlanganlarning holatiga qarab tugma matni
+  // 🏷️ Bulk tugma matni — delivered chiqarib tashlanadi (PIN bilan bittalab)
   const selectedOrders = orders.filter((o) => selectedIds.includes(o.id));
   const nexts = selectedOrders
     .map((o) => nextOf(o.status))
-    .filter(Boolean) as OrderStatus[];
+    .filter((n): n is OrderStatus => !!n && n !== 'delivered');
   const uniqueNexts = Array.from(new Set(nexts));
   const nextLabel: Record<string, string> = {
     accepted: 'Qabul qilish ✅',
     confirmed: 'Tasdiqlash ✔️',
     on_the_way: "Yo'lga chiqarish 🚚",
-    delivered: 'Yetkazdim & to\'lov oldim 💰',
   };
   const bulkLabel =
     uniqueNexts.length === 1
@@ -419,7 +457,7 @@ export default function DriverDashboard() {
     ? Math.max(...report.byMonth.map((m) => m.revenue), 1)
     : 1;
 
-  // 📦 BORT BALANSI (bugungi yetkazilganlardan hisoblanadi)
+  // 📦 BORT BALANSI
   const todayStr = new Date().toDateString();
   const todayDelivered = orders.filter(
     (o) =>
@@ -458,7 +496,7 @@ export default function DriverDashboard() {
       </nav>
 
       <div className="container mx-auto px-4 py-8">
-        {/* 🗺️ XIZMAT HUDUDI (faqat ko'rsatiladi, tanlanmaydi) */}
+        {/* 🗺️ XIZMAT HUDUDI */}
         {assignedDistrict ? (
           <div className="bg-gradient-to-r from-indigo-50 to-blue-50 border border-indigo-200 p-5 rounded-2xl mb-6 flex items-center gap-3">
             <MapPin className="w-6 h-6 text-indigo-600 shrink-0" />
@@ -825,23 +863,29 @@ export default function DriverDashboard() {
           </div>
         )}
 
-        {/* ✅ Tanlanganlar paneli (biror narsa tanlansa ko'rinadi) */}
+        {/* ✅ Tanlanganlar paneli */}
         {selectedIds.length > 0 && (
           <div className="sticky top-16 z-10 bg-blue-600 text-white px-4 py-3 rounded-xl mb-4 flex items-center justify-between shadow-lg">
             <span className="font-semibold">{selectedIds.length} ta tanlandi</span>
-            <div className="flex gap-2">
+            <div className="flex gap-2 items-center">
               <button
                 onClick={clearSelection}
                 className="bg-white/20 hover:bg-white/30 px-3 py-1.5 rounded-lg text-sm font-semibold transition"
               >
                 Bekor
               </button>
-              <button
-                onClick={bulkAdvance}
-                className="bg-white text-blue-700 hover:bg-blue-50 px-4 py-1.5 rounded-lg text-sm font-bold transition"
-              >
-                {bulkLabel}
-              </button>
+              {uniqueNexts.length === 0 ? (
+                <span className="text-xs bg-white/20 px-3 py-1.5 rounded-lg font-medium">
+                  Yetkazish uchun bittalab tanlang (PIN talab qilinadi) 🔐
+                </span>
+              ) : (
+                <button
+                  onClick={bulkAdvance}
+                  className="bg-white text-blue-700 hover:bg-blue-50 px-4 py-1.5 rounded-lg text-sm font-bold transition"
+                >
+                  {bulkLabel}
+                </button>
+              )}
             </div>
           </div>
         )}
@@ -912,6 +956,46 @@ export default function DriverDashboard() {
 
       {receiptOrder && (
         <Receipt order={receiptOrder} onClose={() => setReceiptOrder(null)} />
+      )}
+
+      {/* 🔐 PIN KIRITISH MODALI */}
+      {pinOrder && (
+        <div className="fixed inset-0 z-[9999] bg-black/50 flex items-center justify-center p-4" onClick={() => setPinOrder(null)}>
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-sm p-6" onClick={(e) => e.stopPropagation()}>
+            <h3 className="text-lg font-bold mb-1 flex items-center gap-2">
+              <Lock className="w-5 h-5 text-blue-600" /> Yetkazishni tasdiqlash
+            </h3>
+            <p className="text-sm text-gray-500 mb-4">
+              Buyurtma #{pinOrder.id} · {pinOrder.profiles?.full_name || 'Mijoz'}
+            </p>
+            <p className="text-xs text-gray-500 mb-2">Mijoz ekranida ko'rsatilgan 4 xonali kodni kiriting:</p>
+            <input
+              type="text"
+              inputMode="numeric"
+              maxLength={4}
+              value={pinInput}
+              onChange={(e) => { setPinInput(e.target.value.replace(/\D/g, '')); setPinError(''); }}
+              placeholder="••••"
+              autoFocus
+              className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none text-center text-2xl font-mono tracking-[0.5em] mb-2"
+            />
+            {pinError && (
+              <p className="text-sm text-red-600 font-medium mb-2 flex items-center gap-1">
+                <AlertTriangle className="w-4 h-4" /> {pinError}
+              </p>
+            )}
+            <div className="flex gap-2 mt-3">
+              <button onClick={() => setPinOrder(null)}
+                className="flex-1 bg-gray-100 text-gray-700 py-2.5 rounded-lg font-semibold hover:bg-gray-200 transition">
+                Bekor
+              </button>
+              <button onClick={confirmPin} disabled={pinInput.length !== 4}
+                className="flex-1 bg-emerald-600 text-white py-2.5 rounded-lg font-semibold hover:bg-emerald-700 transition disabled:opacity-40 disabled:cursor-not-allowed">
+                Tasdiqlash 💰
+              </button>
+            </div>
+          </div>
+        </div>
       )}
 
       {/* 📦 SMENANI BOSHLASH MODALI */}
