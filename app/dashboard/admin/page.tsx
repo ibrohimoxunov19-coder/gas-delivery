@@ -227,10 +227,10 @@ export default function AdminDashboard() {
       .eq('role', 'driver')
       .order('full_name');
     if (drivers) {
-      // 🧹 test yozuvlarni filtrlash (ism/telefon "1" yoki "test" bo'lsa)
+      // 🧹 faqat axlat yozuvlarni filtrlash (ism yoki telefon aynan "1" bo'lsa)
       const clean = (drivers as Profile[]).filter(
         (d) =>
-          d.full_name && d.full_name.trim() !== '1' && !/test/i.test(d.full_name) &&
+          d.full_name && d.full_name.trim() !== '1' &&
           d.phone && d.phone.trim() !== '1'
       );
       setDriversList(clean);
@@ -798,7 +798,7 @@ export default function AdminDashboard() {
                           <th className="py-3">Haydovchi</th>
                           <th className="py-3 text-center">Yetkazilgan</th>
                           <th className="py-3 text-center">O'rtacha ⭐</th>
-                          <th className="py-3 text-right">Daromad</th>
+                          <th className="py-3 text-right pr-8">Daromad</th>
                           <th className="py-3 w-1/4">Samara</th>
                         </tr>
                       </thead>
