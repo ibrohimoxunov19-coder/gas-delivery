@@ -176,9 +176,8 @@ export default function DriverDashboard() {
     );
   };
 
-   const loadOrders = async () => {
-    if (!user) return;
-    // 🔒 Tuman biriktirilmagan haydovchi hech qanday buyurtma ko'rmaydi
+  const loadOrders = async () => {
+    // 🔒 ref orqali tekshiramiz (state emas!) — birinchi yuklanishda user hali null bo'ladi
     if (!districtRef.current) {
       setOrders([]);
       return;
@@ -194,21 +193,22 @@ export default function DriverDashboard() {
   };
 
   const loadMyReport = async () => {
-    if (!user) return;
+    const uid = userRef.current; // 🔒 state emas, ref
+    if (!uid) return;
     const { data, error } = await supabase
       .from('orders')
       .select(`*,
         profiles:customer_id (full_name, phone, address),
         driver_profile:profiles!driver_id (full_name, phone, car_plate, car_model, driver_phone),
         cylinder_types:cylinder_type_id (name, weight_kg, price)`)
-      .eq('driver_id', user.id)
+      .eq('driver_id', uid)
       .in('status', ['delivered', 'completed'])
       .order('created_at', { ascending: false });
+    if (error) console.error('[loadMyReport]', error.message);
     if (!error && data) setReport(buildDriverReport(data as Order[]));
   };
-
+  
   const loadMfyStats = async () => {
-    if (!user) return;
     if (!districtRef.current) {
       setMfyStats([]);
       return;
