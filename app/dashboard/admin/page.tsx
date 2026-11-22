@@ -26,6 +26,9 @@ interface MfyReport {
   count: number;
   revenue: number;
   delivered: number;
+  recent30: number;   // 🧠 oxirgi 30 kunda yetkazilgan
+  recurring: number;  // 🔁 takroriy buyurtmalar
+  forecast: number;   // 🧠 kelasi hafta prognozi
 }
 interface RegionReport {
   name: string;
@@ -126,16 +129,27 @@ export default function AdminDashboard() {
           .reduce((s, o) => s + Number(o.total_price), 0),
       });
 
-      // MFY hisoboti
+      // MFY hisoboti + 🧠 talab prognozi (statistik: 30 kunlik o'rtacha + takroriy trend)
       const mfyMap: Record<string, MfyReport> = {};
+      const nowTs = Date.now();
+      const thirtyDaysMs = 30 * 86400000;
       typed.forEach((o) => {
         if (!o.mfy) return;
-        if (!mfyMap[o.mfy]) mfyMap[o.mfy] = { name: o.mfy, count: 0, revenue: 0, delivered: 0 };
+        if (!mfyMap[o.mfy]) mfyMap[o.mfy] = { name: o.mfy, count: 0, revenue: 0, delivered: 0, recent30: 0, recurring: 0, forecast: 0 };
         mfyMap[o.mfy].count++;
         mfyMap[o.mfy].revenue += Number(o.total_price);
-        if (['delivered', 'completed'].includes(o.status)) mfyMap[o.mfy].delivered++;
+        if (['delivered', 'completed'].includes(o.status)) {
+          mfyMap[o.mfy].delivered++;
+          if (nowTs - new Date(o.created_at).getTime() <= thirtyDaysMs) mfyMap[o.mfy].recent30++;
+        }
+        if (o.is_recurring) mfyMap[o.mfy].recurring++;
       });
-      setMfyReports(Object.values(mfyMap).sort((a, b) => b.count - a.count));
+      Object.values(mfyMap).forEach((m) => {
+        const weeklyAvg = (m.recent30 / 30) * 7;   // oxirgi 30 kunlik haftalik o'rtacha
+        const recurringWeekly = m.recurring / 4;    // takroriy buyurtmalar haftalik ulushi
+        m.forecast = Math.round(weeklyAvg + recurringWeekly);
+      });
+      setMfyReports(Object.values(mfyMap).sort((a, b) => b.forecast - a.forecast));
 
       // Hudud hisoboti
       const regionMap: Record<string, RegionReport> = {};
@@ -652,6 +666,15 @@ export default function AdminDashboard() {
                             className="h-full bg-gradient-to-r from-blue-500 to-cyan-500"
                             style={{ width: `${(m.count / maxMfy) * 100}%` }}
                           />
+                        </div>
+                        {/* 🧠 AI talab prognozi */}
+                        <div className="mt-2 flex items-center gap-2 flex-wrap">
+                          <span className="bg-purple-100 text-purple-700 text-xs font-semibold px-2.5 py-1 rounded-full flex items-center gap-1">
+                            🧠 Kelasi hafta: ~{m.forecast} ta ballon
+                          </span>
+                          <span className="text-xs text-gray-400">
+                            (30 kunlik o'rtacha + takroriy)
+                          </span>
                         </div>
                       </div>
                     ))}
