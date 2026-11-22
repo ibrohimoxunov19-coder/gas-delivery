@@ -11,6 +11,17 @@ interface MapProps {
     title: string;
     description?: string;
   }>;
+  numberedMarkers?: Array<{
+    position: [number, number];
+    label: string;
+    color?: string;
+  }>;
+  polyline?: [number, number][];
+  heatSpots?: Array<{
+    position: [number, number];
+    radius: number;
+    intensity: number; // 0..1
+  }>;
   selected?: [number, number] | null;
   onLocationSelect?: (lat: number, lng: number) => void;
   onMarkerDrag?: (lat: number, lng: number) => void;
@@ -21,13 +32,16 @@ export default function Map({
   center = [41.37, 64.58],
   zoom = 13,
   markers = [],
+  numberedMarkers = [],
+  polyline = [],
+  heatSpots = [],
   selected = null,
   onLocationSelect,
   onMarkerDrag,
   height = '400px',
 }: MapProps) {
   const [LeafletMap, setLeafletMap] = useState<any>(null);
-  const [Lref, setLref] = useState<any>(null); // ✅ leaflet ob'ekti
+  const [Lref, setLref] = useState<any>(null);
 
   useEffect(() => {
     import('react-leaflet').then((mod) => {
@@ -36,6 +50,8 @@ export default function Map({
         TileLayer: mod.TileLayer,
         Marker: mod.Marker,
         Popup: mod.Popup,
+        Polyline: mod.Polyline,
+        CircleMarker: mod.CircleMarker,
         useMapEvents: mod.useMapEvents,
         useMap: mod.useMap,
       });
@@ -48,18 +64,16 @@ export default function Map({
         iconUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-icon.png',
         shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-shadow.png',
       });
-      setLref(L); // ✅ SHU YERDA — useEffect ichida, import('leaflet') then'ida
+      setLref(L);
     });
   }, []);
 
-  // Ikkalasi ham yuklanmaguncha loading (bir zumda o'tadi)
   if (!LeafletMap || !Lref) {
     return <div style={{ height }} className="bg-gray-200 rounded-xl animate-pulse" />;
   }
 
-  const { MapContainer, TileLayer, Marker, Popup, useMapEvents, useMap } = LeafletMap;
+  const { MapContainer, TileLayer, Marker, Popup, Polyline, CircleMarker, useMapEvents, useMap } = LeafletMap;
 
-  // 📍 Inline SVG marker (CDN kerak emas, har doim ko'rinadi)
   const makeDivIcon = (color: string) =>
     Lref.divIcon({
       className: '',
@@ -70,6 +84,16 @@ export default function Map({
       iconSize: [32, 42],
       iconAnchor: [16, 42],
       popupAnchor: [0, -40],
+    });
+
+  // 🧠 raqamli doira marker (Smart Route 1→2→3)
+  const makeNumberIcon = (label: string, color = '#2563eb') =>
+    Lref.divIcon({
+      className: '',
+      html: `<div style="width:28px;height:28px;border-radius:50%;background:${color};color:#fff;font-weight:700;display:flex;align-items:center;justify-content:center;border:2px solid #fff;box-shadow:0 1px 4px rgba(0,0,0,.3);font-size:13px;">${label}</div>`,
+      iconSize: [28, 28],
+      iconAnchor: [14, 14],
+      popupAnchor: [0, -14],
     });
 
   function MapController({ center, zoom }: { center: [number, number]; zoom: number }) {
@@ -90,6 +114,14 @@ export default function Map({
     return null;
   }
 
+  // 🔥 Issiqlik rangi: intensity 0..1 → sariq→qizil
+  const heatColor = (i: number) => {
+    if (i > 0.75) return '#dc2626';
+    if (i > 0.5) return '#ea580c';
+    if (i > 0.25) return '#f59e0b';
+    return '#fbbf24';
+  };
+
   return (
     <MapContainer
       center={center}
@@ -103,6 +135,28 @@ export default function Map({
       <MapController center={center} zoom={zoom} />
       {onLocationSelect && <ClickHandler />}
 
+      {/* 🔥 Issiqlik doiralari (markerlar ostida) */}
+      {heatSpots.map((h, idx) => (
+        <CircleMarker
+          key={`heat-${idx}`}
+          center={h.position}
+          radius={h.radius}
+          pathOptions={{
+            color: heatColor(h.intensity),
+            fillColor: heatColor(h.intensity),
+            fillOpacity: 0.25 + h.intensity * 0.3,
+            weight: 1,
+          }}
+        >
+          <Popup>Talab intensivligi: {Math.round(h.intensity * 100)}%</Popup>
+        </CircleMarker>
+      ))}
+
+      {/* 🧠 Marshrut chizig'i (Polyline) */}
+      {polyline.length > 1 && (
+        <Polyline positions={polyline} pathOptions={{ color: '#2563eb', weight: 3, dashArray: '6 8' }} />
+      )}
+
       {/* Buyurtma markerlari — KO'K pin */}
       {markers.map((marker, index) => (
         <Marker key={index} position={marker.position} icon={makeDivIcon('#2563eb')}>
@@ -110,6 +164,13 @@ export default function Map({
             <strong>{marker.title}</strong>
             {marker.description && <p>{marker.description}</p>}
           </Popup>
+        </Marker>
+      ))}
+
+      {/* 🧠 Raqamli tartib markerlari (1→2→3) */}
+      {numberedMarkers.map((nm, idx) => (
+        <Marker key={`num-${idx}`} position={nm.position} icon={makeNumberIcon(nm.label, nm.color)}>
+          <Popup>{nm.label}-bekat</Popup>
         </Marker>
       ))}
 

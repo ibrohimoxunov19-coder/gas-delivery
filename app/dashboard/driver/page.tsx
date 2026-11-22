@@ -10,6 +10,7 @@ import { toast } from '@/components/Toast';
 import { sendPush } from '@/lib/notifications';
 import ProfileButton from '@/components/ProfileButton';
 import { getNavUrl } from '@/lib/navigation';
+import { buildOptimalRoute, RouteResult } from '@/lib/route';
 import NotificationBell from '@/components/NotificationBell';
 import { notifyOutForDelivery, notifyConfirmed } from '@/lib/sms';
 import {
@@ -22,7 +23,7 @@ import { useRouter } from 'next/navigation';
 import {
   LogOut, Truck, MapPin, Star, Filter, TrendingUp, Package, Calendar,
   Navigation, Radio, ExternalLink, BarChart3, WifiOff,
-  Route, Wallet, FileText, Download, AlertTriangle, Lock,
+  Route, Wallet, FileText, Download, AlertTriangle, Brain, Lock,
 } from 'lucide-react';
 
 interface MfyStat {
@@ -50,6 +51,7 @@ export default function DriverDashboard() {
   const [showStartModal, setShowStartModal] = useState(false);
   const [showCloseModal, setShowCloseModal] = useState(false);
   const [startQty, setStartQty] = useState('');
+  const [route, setRoute] = useState<RouteResult | null>(null);
 
   // 🔐 PIN kiritish modali
   const [pinOrder, setPinOrder] = useState<Order | null>(null);
@@ -381,6 +383,21 @@ export default function DriverDashboard() {
       loadMyReport();
     }
   };
+
+  // 🧠 Optimal marshrut (Nearest Neighbor)
+  const computeRoute = () => {
+    if (!myPos) { toast('Avval joylashuvingizni yangilang 📍', 'error'); return; }
+    const stops = orders
+      .filter((o) => ['new', 'accepted', 'confirmed', 'on_the_way'].includes(o.status) && o.latitude && o.longitude)
+      .map((o) => ({ id: o.id, lat: o.latitude!, lng: o.longitude!, label: `#${o.id}` }));
+    if (stops.length === 0) { toast('Faol buyurtmalar yo\'q', 'info'); return; }
+    const r = buildOptimalRoute(myPos, stops);
+    setRoute(r);
+    toast(`Optimal marshrut tuzildi: jami ${r.totalKm} km (${r.savedKm} km tejaldi) 🧠`, 'success');
+  };
+
+  const clearRoute = () => setRoute(null);
+
 
   const saveShift = async (s: 'free' | 'busy' | 'offline') => {
     setShiftStatus(s);
@@ -855,11 +872,53 @@ export default function DriverDashboard() {
 
         {mapMarkers.length > 0 && (
           <div className="mb-6">
-            <h2 className="text-xl font-bold mb-3 flex items-center gap-2">
-              <MapPin className="w-5 h-5 text-blue-600" />
-              Buyurtmalar va joylashuvingiz
-            </h2>
-            <Map markers={mapMarkers} height="350px" />
+            <div className="flex items-center justify-between mb-3 flex-wrap gap-2">
+              <h2 className="text-xl font-bold flex items-center gap-2">
+                <MapPin className="w-5 h-5 text-blue-600" />
+                Buyurtmalar va joylashuvingiz
+              </h2>
+              <div className="flex gap-2">
+                <button
+                  onClick={computeRoute}
+                  className="bg-purple-600 text-white px-4 py-2 rounded-lg text-sm font-semibold hover:bg-purple-700 transition flex items-center gap-1"
+                >
+                  <Brain className="w-4 h-4" /> 🧠 Optimal marshrutni hisoblash
+                </button>
+                {route && (
+                  <button
+                    onClick={clearRoute}
+                    className="bg-gray-100 text-gray-700 px-3 py-2 rounded-lg text-sm font-semibold hover:bg-gray-200 transition"
+                  >
+                    Bekor
+                  </button>
+                )}
+              </div>
+            </div>
+            {route && (
+              <div className="bg-purple-50 border border-purple-200 rounded-xl p-3 mb-3 text-sm text-purple-800">
+                <b>Jami masofa: {route.totalKm} km</b> · oddiy tartibda {route.naiveKm} km ·
+                <b> {route.savedKm} km</b> yo'l va yoqilg'i tejaldi 🚚
+              </div>
+            )}
+            <Map
+              markers={mapMarkers}
+              numberedMarkers={
+                route
+                  ? route.order.map((s, i) => ({
+                      position: [s.lat, s.lng] as [number, number],
+                      label: String(i + 1),
+                    }))
+                  : []
+              }
+              polyline={
+                route && myPos
+                  ? [myPos, ...route.order.map((s) => [s.lat, s.lng] as [number, number])]
+                  : []
+              }
+              center={myPos || [41.37, 64.58]}
+              zoom={13}
+              height="350px"
+            />
           </div>
         )}
 
