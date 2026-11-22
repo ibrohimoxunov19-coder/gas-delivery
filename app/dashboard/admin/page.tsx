@@ -251,17 +251,7 @@ export default function AdminDashboard() {
     } else toast('Xatolik: ' + error.message, 'error');
   };
 
-    // 👨‍✈️ Admin buyurtmani haydovchiga qo'lda biriktiradi
-  const assignDriver = async (orderId: number, driverId: string) => {
-    const { error } = await supabase
-      .from('orders')
-      .update({ driver_id: driverId || null, updated_at: new Date().toISOString() })
-      .eq('id', orderId);
-    if (!error) {
-      toast(driverId ? 'Haydovchi biriktirildi ✓' : 'Biriktirish bekor qilindi', 'success');
-      loadAll();
-    } else toast('Xatolik: ' + error.message, 'error');
-  };
+
 
   const filteredOrders = useMemo(() => {
     return orders.filter((o) => {
@@ -598,24 +588,7 @@ export default function AdminDashboard() {
                           showActions
                           onUpdateStatus={handleUpdateStatus}
                         />
-                        {/* 👨‍✈️ Qo'lda haydovchi biriktirish (faqat new/accepted) */}
-                        {['new', 'accepted'].includes(order.status) && (
-                          <div className="mt-2 flex items-center gap-2">
-                            <span className="text-xs text-gray-500 shrink-0">Haydovchi:</span>
-                            <select
-                              value={order.driver_id || ''}
-                              onChange={(e) => assignDriver(order.id, e.target.value)}
-                              className="flex-1 px-3 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none text-sm bg-white"
-                            >
-                              <option value="">— Biriktirilmagan —</option>
-                              {driversList.map((d) => (
-                                <option key={d.id} value={d.id}>
-                                  {d.full_name}{d.home_district ? ` · ${d.home_district}` : ''}
-                                </option>
-                              ))}
-                            </select>
-                          </div>
-                        )}
+
                         <button
                           onClick={() => setReceiptOrder(order)}
                           className="mt-2 w-full bg-gray-100 text-gray-700 py-2 rounded-lg font-semibold hover:bg-gray-200 transition flex items-center justify-center gap-2 text-sm"
