@@ -18,7 +18,7 @@ import {
 } from 'recharts';
 import {
   LogOut, Shield, TrendingUp, Package, Users, MapPin, Home, Calendar,
-  ArrowUpRight, Download, Search, Filter, Warehouse, Save, Trophy, DollarSign,
+  ArrowUpRight, Download, Search, Filter, Warehouse, Save, Trophy, DollarSign, Flame,
 } from 'lucide-react';
 
 interface MfyReport {
@@ -67,6 +67,7 @@ export default function AdminDashboard() {
   const [dateFilter, setDateFilter] = useState<string>('all');
   const [receiptOrder, setReceiptOrder] = useState<Order | null>(null); // 📄 chek
   const [driversList, setDriversList] = useState<Profile[]>([]); // 🚚 barcha haydovchilar
+  const [showHeat, setShowHeat] = useState(false); // 🔥 issiqlik rejimi
 
   const router = useRouter();
 
@@ -309,6 +310,29 @@ export default function AdminDashboard() {
 
   const dispatchCenter: [number, number] =
     dispatchMarkers.length > 0 ? dispatchMarkers[0].position : [40.9983, 71.6726];
+
+    // 🔥 Issiqlik xarita: MFY bo'yicha buyurtmalar zichligi (koordinata o'rtachasi + intensity)
+  const heatSpots = useMemo(() => {
+    if (!showHeat) return [];
+    const byMfy: Record<string, { lat: number[]; lng: number[] }> = {};
+    orders.forEach((o) => {
+      if (!o.mfy || !o.latitude || !o.longitude) return;
+      if (!byMfy[o.mfy]) byMfy[o.mfy] = { lat: [], lng: [] };
+      byMfy[o.mfy].lat.push(o.latitude);
+      byMfy[o.mfy].lng.push(o.longitude);
+    });
+    const entries = Object.entries(byMfy);
+    const maxC = Math.max(...entries.map(([, v]) => v.lat.length), 1);
+    return entries.map(([, v]) => ({
+      position: [
+        v.lat.reduce((a, b) => a + b, 0) / v.lat.length,
+        v.lng.reduce((a, b) => a + b, 0) / v.lng.length,
+      ] as [number, number],
+      radius: 20 + (v.lat.length / maxC) * 40, // 20..60 px
+      intensity: v.lat.length / maxC, // 0..1
+    }));
+  }, [orders, showHeat]);
+  
 
 
   const handleUpdateStatus = async (orderId: number, status: OrderStatus) => {
@@ -641,19 +665,30 @@ export default function AdminDashboard() {
               <div>
                 {/* 🗺️ DISPETCHER XARITASI */}
                 <div className="mb-8">
-                  <h3 className="text-xl font-bold mb-2 flex items-center gap-2">
-                    <MapPin className="w-5 h-5 text-blue-600" />
-                    Dispetcher xaritasi
-                  </h3>
+                  <div className="flex items-center justify-between mb-2 flex-wrap gap-2">
+                    <h3 className="text-xl font-bold flex items-center gap-2">
+                      <MapPin className="w-5 h-5 text-blue-600" />
+                      Dispetcher xaritasi
+                    </h3>
+                    <button
+                      onClick={() => setShowHeat((v) => !v)}
+                      className={`px-4 py-2 rounded-lg text-sm font-semibold transition flex items-center gap-1 ${
+                        showHeat ? 'bg-red-600 text-white' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                      }`}
+                    >
+                      <Flame className="w-4 h-4" /> 🔥 Talab yuqori hududlar
+                    </button>
+                  </div>
                   <p className="text-sm text-gray-500 mb-3">
                     Ko'k pin — faol buyurtmalar · 🚚 — haydovchilarning jonli joylashuvi
+                    {showHeat && " · 🔥 doiralar — MFY bo'yicha talab zichligi"}
                   </p>
-                  {dispatchMarkers.length === 0 ? (
+                  {dispatchMarkers.length === 0 && heatSpots.length === 0 ? (
                     <p className="text-gray-500 text-center py-12 bg-gray-50 rounded-xl">
                       Hozircha faol buyurtma yoki haydovchi joylashuvi yo'q
                     </p>
                   ) : (
-                    <Map center={dispatchCenter} zoom={12} markers={dispatchMarkers} height="420px" />
+                    <Map center={dispatchCenter} zoom={12} markers={dispatchMarkers} heatSpots={heatSpots} height="420px" />
                   )}
                 </div>
 
