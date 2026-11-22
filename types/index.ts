@@ -48,7 +48,8 @@ export interface Order {
   delivery_time?: string;
   delivered_at?: string;   // haydovchi to'lov oldi (3-band)
   completed_at?: string;   // mijoz tasdiqladi -> chek (4-band)
-  receipt_no?: string;
+  receipt_no: string | null;
+  delivery_pin?: string | null;
   is_recurring: boolean;
   rating?: number;
   review_text?: string;

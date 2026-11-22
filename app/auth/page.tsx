@@ -6,6 +6,14 @@ import { useRouter } from 'next/navigation';
 import { toast } from '@/components/Toast';
 import { LogIn, UserPlus, Flame } from 'lucide-react';
 
+// 👇 O'Z DEMO HISOBINGIZNI SHU YERGA YOZING (email:parol)
+const DEMO_ACCOUNTS = {
+  customer: { email: 'demo@mijoz.uz', password: '123456' },
+  driver:   { email: 'demo@haydovchi.uz', password: '123456' },
+  admin:    { email: 'demo@admin.uz', password: '123456' },
+};
+
+
 export default function AuthPage() {
   const [isLogin, setIsLogin] = useState(true);
   const [email, setEmail] = useState('');
@@ -15,6 +23,25 @@ export default function AuthPage() {
   const [role, setRole] = useState<'customer' | 'driver'>('customer');
   const [loading, setLoading] = useState(false);
   const router = useRouter();
+
+    const handleDemoLogin = async (acc: { email: string; password: string }) => {
+    setLoading(true);
+    try {
+      const { data, error } = await supabase.auth.signInWithPassword(acc);
+      if (error) throw error;
+      const { data: profile } = await supabase
+        .from('profiles').select('role').eq('id', data.user.id).single();
+      toast('Demo hisobga kirdi ✓', 'success');
+      if (profile?.role === 'admin') router.push('/dashboard/admin');
+      else if (profile?.role === 'driver') router.push('/dashboard/driver');
+      else router.push('/dashboard/customer');
+    } catch (error) {
+      toast('Demo kirish xatosi: ' + (error as Error).message, 'error');
+    } finally {
+      setLoading(false);
+    }
+  };
+
 
   const handleAuth = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -165,6 +192,31 @@ export default function AuthPage() {
             )}
           </button>
         </form>
+
+                {/* 🚀 DEMO HISOBlar ORQALI KIRISH */}
+        <div className="mt-5 pt-5 border-t border-gray-200">
+          <p className="text-xs font-semibold text-gray-500 text-center mb-2">
+            Yoki demo hisob bilan kirish
+          </p>
+          <div className="grid grid-cols-3 gap-2">
+            {([
+              { k: 'customer', l: 'Mijoz' },
+              { k: 'driver', l: 'Haydovchi' },
+              { k: 'admin', l: 'Admin' },
+            ] as const).map((d) => (
+              <button
+                key={d.k}
+                type="button"
+                disabled={loading}
+                onClick={() => handleDemoLogin(DEMO_ACCOUNTS[d.k])}
+                className="py-2 rounded-lg text-xs font-semibold border border-gray-200 bg-gray-50 text-gray-700 hover:bg-blue-50 hover:text-blue-700 hover:border-blue-300 transition disabled:opacity-50"
+              >
+                {d.l}
+              </button>
+            ))}
+          </div>
+        </div>
+
 
         <div className="mt-6 text-center">
           <button

@@ -11,11 +11,11 @@ import ProfileButton from '@/components/ProfileButton';
 import OrderTimeline from '@/components/OrderTimeline';
 import RatingModal from '@/components/RatingModal';
 import NotificationBell from '@/components/NotificationBell';
-import { requestNotifPermission, hasNotifPermission, sendPush } from '@/lib/notifications';
+import { sendPush } from '@/lib/notifications';
 import { useRouter } from 'next/navigation';
 import {
-  LogOut, Package, History, XCircle, FileText, Bell, BellRing,
-  RefreshCw, Star, CircleCheckBig,
+  LogOut, Package, History, XCircle, FileText,
+  RefreshCw, Star, CircleCheckBig, Lock, Droplets,
 } from 'lucide-react';
 import { toast } from '@/components/Toast';
 
@@ -35,13 +35,11 @@ export default function CustomerDashboard() {
   const [activeTab, setActiveTab] = useState<'active' | 'history'>('active');
   const [receiptOrder, setReceiptOrder] = useState<Order | null>(null);
   const [rateOrderId, setRateOrderId] = useState<number | null>(null);
-  const [notifOn, setNotifOn] = useState(false);
   const [recurringAlert, setRecurringAlert] = useState<Order | null>(null);
   const userIdRef = useRef<string>('');
   const router = useRouter();
 
   useEffect(() => {
-    setNotifOn(hasNotifPermission());
     checkUser();
   }, []);
 
@@ -123,13 +121,6 @@ export default function CustomerDashboard() {
     toast('Oylik eslatma yuborildi (demo) 🔔', 'success');
   };
 
-  const handleEnableNotif = async () => {
-    const ok = await requestNotifPermission();
-    setNotifOn(ok);
-    if (ok) toast('Bildirishnomalar yoqildi 🔔', 'success');
-    else toast('Ruxsat berilmadi', 'error');
-  };
-
   const handleCancelOrder = async (orderId: number) => {
     if (!confirm('Rostdan ham bu buyurtmani bekor qilmoqchimisiz?')) return;
     const { error } = await supabase
@@ -142,7 +133,6 @@ export default function CustomerDashboard() {
     } else toast('Xatolik: ' + error.message, 'error');
   };
 
-  // ✅ 4-band: mijoz olganligini tasdiqlaydi -> completed + completed_at -> chek
   const handleConfirmReceived = async (orderId: number) => {
     if (!confirm('Ballonni olganligingizni tasdiqlaysizmi? Chek shakllanadi.')) return;
     const { error } = await supabase
@@ -172,10 +162,35 @@ export default function CustomerDashboard() {
     );
   }
 
-  // ✅ TUZATILGAN FILTR: yetkazilgan (delivered) ham TARIXGA o'tadi
   const activeOrders = orders.filter((o) => ['new', 'accepted', 'confirmed', 'on_the_way'].includes(o.status));
   const historyOrders = orders.filter((o) => ['delivered', 'completed', 'cancelled'].includes(o.status));
   const displayOrders = activeTab === 'active' ? activeOrders : historyOrders;
+
+  // 📊 KVOTA VIDJETI (mijoz iste'mol sikli)
+  const completedOrders = orders.filter((o) => o.status === 'completed' || o.status === 'delivered');
+  const lastPurchase = completedOrders[0];
+  const daysSinceLast = lastPurchase
+    ? Math.floor((Date.now() - new Date(lastPurchase.created_at).getTime()) / 86400000)
+    : null;
+  // O'rtacha sikl: oxirgi 3 buyurtma orasidagi o'rtacha kun (bo'lmasa 30 kun default)
+  let avgCycle = 30;
+  if (completedOrders.length >= 3) {
+    const gaps: number[] = [];
+    for (let i = 0; i < completedOrders.length - 1 && gaps.length < 3; i++) {
+      const g = Math.floor(
+        (new Date(completedOrders[i].created_at).getTime() -
+          new Date(completedOrders[i + 1].created_at).getTime()) / 86400000
+      );
+      if (g > 0) gaps.push(g);
+    }
+    if (gaps.length > 0) avgCycle = Math.round(gaps.reduce((a, b) => a + b, 0) / gaps.length);
+  }
+  const remainingPct = daysSinceLast != null
+    ? Math.max(0, Math.min(100, Math.round(100 - (daysSinceLast / avgCycle) * 100)))
+    : null;
+  const daysLeft = daysSinceLast != null
+    ? Math.max(0, avgCycle - daysSinceLast)
+    : null;
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -183,15 +198,7 @@ export default function CustomerDashboard() {
         <div className="container mx-auto px-4 py-4 flex justify-between items-center">
           <h1 className="text-2xl font-bold text-gray-800">Mijoz paneli</h1>
           <div className="flex items-center gap-3">
-            {!notifOn ? (
             <NotificationBell role="customer" customerId={user?.id} />
-            ) : (
-              <span className="flex items-center gap-1 text-green-600 text-sm font-semibold">
-                <BellRing className="w-4 h-4" />
-                <span className="hidden sm:inline">Yoqilgan</span>
-              </span>
-            )}
-            {/* 👤 1-band: profil ikonkasi (eski <details> O'CHDI) */}
             {user && <ProfileButton profile={user} onUpdated={checkUser} />}
             <button
               onClick={handleLogout}
@@ -205,6 +212,38 @@ export default function CustomerDashboard() {
       </nav>
 
       <div className="container mx-auto px-4 py-8 print:hidden">
+        {/* 📊 KVOTA VIDJETI */}
+        {lastPurchase && (
+          <div className="bg-gradient-to-r from-cyan-50 to-blue-50 border border-cyan-200 rounded-2xl p-5 mb-6 flex items-center gap-4 animate-fade-in-up">
+            <div className="bg-cyan-600 p-3 rounded-xl shrink-0">
+              <Droplets className="w-6 h-6 text-white" />
+            </div>
+            <div className="flex-1 min-w-0">
+              <p className="font-bold text-gray-800">Iste'mol prognozi</p>
+              <p className="text-sm text-gray-600">
+                Oxirgi xarid: <b>{daysSinceLast} kun</b> oldin · O'rtacha sikl: ~{avgCycle} kun
+              </p>
+              {remainingPct != null && (
+                <div className="mt-2 h-2 bg-white/60 rounded-full overflow-hidden max-w-xs">
+                  <div
+                    className={`h-full transition-all ${
+                      remainingPct > 50 ? 'bg-green-500' : remainingPct > 20 ? 'bg-amber-500' : 'bg-red-500'
+                    }`}
+                    style={{ width: `${remainingPct}%` }}
+                  />
+                </div>
+              )}
+            </div>
+            <div className="text-right shrink-0">
+              <p className="text-2xl font-bold text-cyan-700">{remainingPct ?? '—'}%</p>
+              <p className="text-xs text-gray-500">taxminiy qoldiq</p>
+              {daysLeft != null && daysLeft > 0 && (
+                <p className="text-xs text-cyan-600 font-semibold mt-0.5">~{daysLeft} kunga yetadi</p>
+              )}
+            </div>
+          </div>
+        )}
+
         {/* TAKRORIY ESLATMA */}
         {recurringAlert && (
           <div className="bg-gradient-to-r from-purple-50 to-indigo-50 border border-purple-200 rounded-2xl p-5 mb-6 flex items-center gap-4 animate-fade-in-up">
@@ -237,7 +276,7 @@ export default function CustomerDashboard() {
               onClick={simulateRecurring}
               className="mt-3 w-full bg-white border border-purple-200 text-purple-700 py-2.5 rounded-xl font-semibold hover:bg-purple-50 transition flex items-center justify-center gap-2 text-sm"
             >
-              <Bell className="w-4 h-4" />
+              <RefreshCw className="w-4 h-4" />
               Demo: oylik eslatmani ko'rish
             </button>
           </div>
@@ -283,6 +322,18 @@ export default function CustomerDashboard() {
                   <div key={order.id} className="relative">
                     <OrderCard order={order} />
 
+                    {/* 🔐 PIN — faol buyurtmada ko'rsatiladi (haydovchi kiritadi) */}
+                    {order.delivery_pin && ['new', 'accepted', 'confirmed', 'on_the_way'].includes(order.status) && (
+                      <div className="mt-2 bg-slate-800 text-white rounded-xl px-4 py-3 flex items-center justify-between">
+                        <span className="text-sm flex items-center gap-2 text-slate-300">
+                          <Lock className="w-4 h-4" /> Yetkazish tasdiq kodi
+                        </span>
+                        <span className="text-2xl font-mono font-bold tracking-[0.3em] text-amber-300">
+                          {order.delivery_pin}
+                        </span>
+                      </div>
+                    )}
+
                     {order.status === 'new' && (
                       <button
                         onClick={() => handleCancelOrder(order.id)}
@@ -295,10 +346,8 @@ export default function CustomerDashboard() {
 
                     {order.status === 'on_the_way' && <TrackingPanel order={order} />}
 
-                    {/* TIMELINE — har doim ko'rinadi */}
                     <OrderTimeline order={order} />
 
-                    {/* ✅ 4-band: delivered -> mijoz olganligini tasdiqlaydi (tarixda ham ko'rinadi) */}
                     {order.status === 'delivered' && (
                       <button
                         onClick={() => handleConfirmReceived(order.id)}
@@ -309,7 +358,6 @@ export default function CustomerDashboard() {
                       </button>
                     )}
 
-                    {/* BAHOLASH — faqat yakunlangan va baholanmagan */}
                     {order.status === 'completed' && !order.rating && (
                       <button
                         onClick={() => setRateOrderId(order.id)}
@@ -320,7 +368,6 @@ export default function CustomerDashboard() {
                       </button>
                     )}
 
-                    {/* AGAR ALLAQACHON BAHO BERILGAN BO'LSA */}
                     {order.rating && (
                       <div className="mt-2 flex items-center gap-1 text-yellow-500">
                         {'★'.repeat(order.rating)}
@@ -329,7 +376,6 @@ export default function CustomerDashboard() {
                       </div>
                     )}
 
-                    {/* 📄 CHEK — faqat yakunlangan (4-band talabi) */}
                     {order.status === 'completed' && (
                       <button
                         onClick={() => setReceiptOrder(order)}

@@ -31,7 +31,7 @@ export const MFY_ZONES: MfyZone[] = [
     },
   },
   {
-    name: 'Olvalzor',
+    name: 'Olmazor',
     region: 'Namangan viloyati',
     district: 'Namangan shahri',
     geojson: {

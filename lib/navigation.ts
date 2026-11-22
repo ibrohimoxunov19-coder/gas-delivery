@@ -1,12 +1,17 @@
-// Marshrut havolasini yaratish (yonilishuvdan manzilgacha)
+// Marshrut havolasini yaratish (origin ixtiyoriy — myPos bo'lmasa ham ishlaydi)
 export function getNavUrl(
-  fromLat: number, fromLng: number,
-  toLat: number, toLng: number,
+  fromLat: number | null | undefined,
+  fromLng: number | null | undefined,
+  toLat: number,
+  toLng: number,
   provider: 'google' | 'yandex' = 'google'
 ): string {
+  const hasOrigin = fromLat != null && fromLng != null;
   if (provider === 'google') {
-    return `https://www.google.com/maps/dir/?api=1&origin=${fromLat},${fromLng}&destination=${toLat},${toLng}&travelmode=driving`;
+    const origin = hasOrigin ? `&origin=${fromLat},${fromLng}` : '';
+    return `https://www.google.com/maps/dir/?api=1${origin}&destination=${toLat},${toLng}&travelmode=driving`;
   }
-  // Yandex Maps routelashuvi
-  return `https://yandex.uz/maps/?rtext=${fromLat},${fromLng}~${toLat},${toLng}&rtt=auto`;
+  // Yandex: origin bo'lmasa "~" bilan faqat manzil
+  const rtext = hasOrigin ? `${fromLat},${fromLng}~${toLat},${toLng}` : `~${toLat},${toLng}`;
+  return `https://yandex.uz/maps/?rtext=${rtext}&rtt=auto`;
 }
