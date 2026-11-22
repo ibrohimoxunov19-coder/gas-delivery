@@ -183,11 +183,12 @@ export default function DriverDashboard() {
       .select(`*, profiles:customer_id (full_name, phone), cylinder_types:cylinder_type_id (name)`)
       .in('status', ['new', 'accepted', 'confirmed', 'on_the_way', 'delivered', 'completed']);
     if (districtRef.current) {
-      q = q.or(`district.eq.${districtRef.current},driver_id.eq.${user.id}`);
+      q = q.or(`district.eq."${districtRef.current}",driver_id.eq."${user.id}"`);
     } else {
       q = q.eq('driver_id', user.id);
     }
     const { data, error } = await q.order('created_at', { ascending: false });
+    if (error) console.error('[loadOrders]', error.message);
     if (!error && data) setOrders(data as Order[]);
   };
 
@@ -212,11 +213,12 @@ export default function DriverDashboard() {
       .select('mfy, total_price, status')
       .in('status', ['new', 'accepted', 'confirmed', 'on_the_way', 'delivered', 'completed']);
     if (districtRef.current) {
-      q = q.or(`district.eq.${districtRef.current},driver_id.eq.${user.id}`);
+      q = q.or(`district.eq."${districtRef.current}",driver_id.eq."${user.id}"`);
     } else {
       q = q.eq('driver_id', user.id);
     }
     const { data, error } = await q;
+    if (error) console.error('[loadMfyStats]', error.message);
     if (!error && data) {
       const stats: Record<string, MfyStat> = {};
       data.forEach((o: any) => {
