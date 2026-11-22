@@ -176,18 +176,19 @@ export default function DriverDashboard() {
     );
   };
 
-  const loadOrders = async () => {
+   const loadOrders = async () => {
     if (!user) return;
-    let q = supabase
+    // 🔒 Tuman biriktirilmagan haydovchi hech qanday buyurtma ko'rmaydi
+    if (!districtRef.current) {
+      setOrders([]);
+      return;
+    }
+    const { data, error } = await supabase
       .from('orders')
       .select(`*, profiles:customer_id (full_name, phone), cylinder_types:cylinder_type_id (name)`)
-      .in('status', ['new', 'accepted', 'confirmed', 'on_the_way', 'delivered', 'completed']);
-    if (districtRef.current) {
-      q = q.or(`district.eq."${districtRef.current}",driver_id.eq."${user.id}"`);
-    } else {
-      q = q.eq('driver_id', user.id);
-    }
-    const { data, error } = await q.order('created_at', { ascending: false });
+      .in('status', ['new', 'accepted', 'confirmed', 'on_the_way', 'delivered', 'completed'])
+      .eq('district', districtRef.current)
+      .order('created_at', { ascending: false });
     if (error) console.error('[loadOrders]', error.message);
     if (!error && data) setOrders(data as Order[]);
   };
@@ -208,16 +209,15 @@ export default function DriverDashboard() {
 
   const loadMfyStats = async () => {
     if (!user) return;
-    let q = supabase
+    if (!districtRef.current) {
+      setMfyStats([]);
+      return;
+    }
+    const { data, error } = await supabase
       .from('orders')
       .select('mfy, total_price, status')
-      .in('status', ['new', 'accepted', 'confirmed', 'on_the_way', 'delivered', 'completed']);
-    if (districtRef.current) {
-      q = q.or(`district.eq."${districtRef.current}",driver_id.eq."${user.id}"`);
-    } else {
-      q = q.eq('driver_id', user.id);
-    }
-    const { data, error } = await q;
+      .in('status', ['new', 'accepted', 'confirmed', 'on_the_way', 'delivered', 'completed'])
+      .eq('district', districtRef.current);
     if (error) console.error('[loadMfyStats]', error.message);
     if (!error && data) {
       const stats: Record<string, MfyStat> = {};
